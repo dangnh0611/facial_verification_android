@@ -2,7 +2,8 @@
 <androidx.constraintlayout.widget.ConstraintLayout
 xmlns:android="http://schemas.android.com/apk/res/android"
 xmlns:app="http://schemas.android.com/apk/res-auto"
-android:layout_width="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
 android:layout_height="match_parent"
 android:background="#FF000000"
     >
@@ -10,15 +11,26 @@ android:background="#FF000000"
 
 <androidx.camera.view.PreviewView
     android:id="@+id/previewView"
-    android:layout_width="0dp"
+    android:layout_width="match_parent"
     android:layout_height="0dp"
     android:layout_marginBottom="8dp"
     android:contentDescription="@string/preview_area"
     android:importantForAccessibility="no"
-    app:layout_constraintBottom_toTopOf="@+id/linearLayout"
-    app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintTop_toTopOf="parent" />
+    app:scaleType="fitCenter"
+    app:layout_constraintDimensionRatio="H,3:4"
+    tools:ignore="MissingConstraints" />
+
+    <com.example.donelogin.OverlayView
+        android:id="@+id/overlayView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/previewView"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="@+id/previewView"
+        app:layout_constraintTop_toTopOf="@+id/previewView"
+        app:layout_constraintEnd_toEndOf="@+id/previewView"
+        app:layout_constraintVertical_bias="0.0"
+        />
 
 <LinearLayout
     android:id="@+id/linearLayout"
@@ -32,9 +44,7 @@ android:background="#FF000000"
     android:orientation="horizontal"
     android:weightSum="3"
     app:layout_constraintBottom_toBottomOf="parent"
-    app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintTop_toBottomOf="@+id/previewView">
+    app:layout_constraintEnd_toEndOf="parent">
 
     <androidx.cardview.widget.CardView
         android:id="@+id/capture"
