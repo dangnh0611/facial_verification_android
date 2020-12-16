@@ -33,6 +33,7 @@ import android.util.Size;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.example.donelogin.ml.FaceDetector;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -41,11 +42,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
-import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
 import com.google.mlkit.vision.face.FaceLandmark;
 
+import org.opencv.android.OpenCVLoader;
+
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -56,16 +59,18 @@ import java.util.concurrent.Executors;
 
 public class CameraActivity extends AppCompatActivity {
 
-    private Executor executor = Executors.newSingleThreadExecutor();
-    FaceDetectorOptions faceDetectorOptions;
-    FaceDetector faceDetector;
+//    private Executor executor = Executors.newSingleThreadExecutor();
+    private Executor executor= Executors.newFixedThreadPool(4);
+
     private OverlayView overlayView;
-    private Matrix matrix=null;
+    private Matrix transformationMatrix=null;
+    private FaceDetector faceDetector;
     private int REQUEST_CODE_PERMISSIONS = 1001;
     private final String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA", "android.permission.WRITE_EXTERNAL_STORAGE"};
 
     PreviewView mPreviewView;
     ImageView captureImage;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,41 +78,40 @@ public class CameraActivity extends AppCompatActivity {
         setContentView(R.layout.camera);
 
         mPreviewView = findViewById(R.id.previewView);
+
+        // Overlay View for bounding box drawing, ..
+        overlayView = (OverlayView) findViewById( R.id.overlayView);
         captureImage = findViewById(R.id.captureImg);
 
-        overlayView = (OverlayView) findViewById( R.id.overlayView);
         // Necessary to keep the Overlay above the TextureView so that the boxes are visible.
         overlayView.setWillNotDraw( false );
         overlayView.setZOrderOnTop( true );
 
+        try {
+            faceDetector=new FaceDetector(getAssets());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         if(allPermissionsGranted()){
-            // Start MLKit Face detector
-            faceDetectorOptions =
-                    new FaceDetectorOptions.Builder()
-                            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-                            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
-                            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
-                            .build();
-            faceDetector = FaceDetection.getClient(faceDetectorOptions);
             startCamera(); //start camera if permission has been granted by user
         } else{
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
         }
     }
 
-    private void startCamera() {
 
+    private void startCamera() {
         final ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
         cameraProviderFuture.addListener(new Runnable() {
             @Override
             public void run() {
                 try {
-
+                    // Request new camera provider
                     ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                    // Bind Preview, Analyze, Capture usecases
                     bindPreview(cameraProvider);
-
                 } catch (ExecutionException | InterruptedException e) {
                     // No errors need to be handled for this Future.
                     // This should never be reached.
@@ -116,92 +120,44 @@ public class CameraActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+
     @SuppressLint("RestrictedApi")
     void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
 
         Preview preview = new Preview.Builder()
-//                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-            .setTargetResolution(new Size(1200, 1600 ))
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+//            .setTargetResolution(new Size(1200, 1600 ))
                 .build();
 
 //        mPreviewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
+        mPreviewView.setImplementationMode(PreviewView.ImplementationMode.PERFORMANCE);
 
+        // Select FRONT camera
         CameraSelector cameraSelector = new CameraSelector.Builder()
                 .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                 .build();
 
         ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
-                .setTargetResolution(new Size(1200, 1600))
-//                .setTargetResolution(new Size(640, 480))
-//                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+//                .setTargetResolution(new Size(1200, 1600))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
 
         imageAnalysis.setAnalyzer(executor, new ImageAnalysis.Analyzer() {
             @Override
             public void analyze(@NonNull ImageProxy imageProxy) {
-                // Main analyze code hear
-
-                if (matrix!= null){}
-                else{
-                    matrix=getMappingMatrix(imageProxy, mPreviewView);
-                    overlayView.setTransformMatrix(matrix);
+                /*
+                 MAIN ANALYZE CODE GOES HERE
+                */
+                // setup transformation Matrix
+                if (transformationMatrix == null){
+                    transformationMatrix=getTransformationMatrix(imageProxy, mPreviewView);
+                    overlayView.setTransformationMatrix(transformationMatrix);
                 }
-                @SuppressLint("UnsafeExperimentalUsageError") Image mediaImage = imageProxy.getImage();
-                if (mediaImage != null) {
-                    InputImage image =
-                            InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
-                    Log.d("ROTATION", Integer.toString(imageProxy.getImageInfo().getRotationDegrees()));
-                    // Pass image to an ML Kit Vision API
-                    Task<List<Face>> result =
-                            faceDetector.process(image)
-                                    .addOnSuccessListener(
-                                            new OnSuccessListener<List<Face>>() {
-                                                @Override
-                                                public void onSuccess(List<Face> faces) {
-                                                    // Task completed successfully
-                                                    // [START_EXCLUDE]
-                                                    // [START get_face_info]
-                                                    for (Face face : faces) {
-                                                        Rect bounds = face.getBoundingBox();
-                                                        float rotY = face.getHeadEulerAngleY();  // Head is rotated to the right rotY degrees
-                                                        float rotZ = face.getHeadEulerAngleZ();  // Head is tilted sideways rotZ degrees
+//                List<Face> faces = faceDetector.detectFace(imageProxy);
+//                faceDetector.drawBoundingBox(overlayView, faces);
+                faceDetector.detectFaceAsync(imageProxy, overlayView);
 
-                                                        // If landmark detection was enabled (mouth, ears, eyes, cheeks, and
-                                                        // nose available):
-                                                        FaceLandmark leftEar = face.getLandmark(FaceLandmark.NOSE_BASE);
-                                                        if (leftEar != null) {
-                                                            PointF leftEarPos = leftEar.getPosition();
-                                                            Log.d("ABCDEF", leftEarPos.toString());
-                                                        }
-
-                                                    }
-                                                    // [END get_face_info]
-                                                    // [END_EXCLUDE]
-                                                    // Clear the BoundingBoxOverlay and set the new results ( boxes ) to be displayed.
-                                                    if (faces != null){
-                                                        overlayView.setFaces(faces);
-                                                        overlayView.invalidate();
-                                                    }
-                                                }
-                                            })
-                                    .addOnCompleteListener(
-                                            new OnCompleteListener<List<Face>>() {
-                                                @Override
-                                                public void onComplete(@NonNull Task<List<Face>> task) {
-                                                    imageProxy.close();
-                                                }
-                                            }
-                                    )
-                                    .addOnFailureListener(
-                                            new OnFailureListener() {
-                                                @Override
-                                                public void onFailure(@NonNull Exception e) {
-                                                    // Task failed with an exception
-                                                    // ...
-                                                }
-                                            });
-                }
             }
         });
 
@@ -282,27 +238,10 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
-    private Matrix getMappingMatrix(ImageProxy imageProxy, PreviewView previewView) {
-        // Our boxes will be predicted on a 640 * 480 image. So, we need to scale the boxes to the device screen's width and
-        // height
-
+    private Matrix getTransformationMatrix(ImageProxy imageProxy, PreviewView previewView) {
         Rect cropRect = imageProxy.getCropRect();
-
-//        float xfactor = (float)previewView.getWidth() / cropRect.right;
-//        float yfactor = (float)previewView.getHeight() / cropRect.bottom;
-//        // Create a Matrix for scaling
-//        Matrix matrix= new Matrix();
-//        Log.d("FACTOR", Float.toString(xfactor) + Float.toString(yfactor));
-//        matrix.preScale(xfactor, yfactor);
-//        Log.d("SOURCE", cropRect.flattenToString());
-//        Log.d("SOURCE", Float.toString(cropRect.top) + Float.toString(cropRect.left)+ Float.toString(cropRect.right) + "___" + Float.toString(cropRect.bottom));
-//        Log.d("DESTINATION", Float.toString(previewView.getWidth()) + "___" + Float.toString(previewView.getHeight()));
-//        return matrix;
-
-
         int rotationDegrees = imageProxy.getImageInfo().getRotationDegrees();
         Matrix matrix = new Matrix();
-
         // A float array of the source vertices (crop rect) in clockwise order.
 //        float[] source = {
 //                cropRect.left,
@@ -315,6 +254,7 @@ public class CameraActivity extends AppCompatActivity {
 //                cropRect.bottom
 //        };
 
+        // Since image is rotated when convert from MediaImage to InputImage
         float[] source = {
                 cropRect.bottom,
                 0,
@@ -326,7 +266,7 @@ public class CameraActivity extends AppCompatActivity {
                 cropRect.right
         };
         Log.d("SOURCE", cropRect.flattenToString());
-        Log.d("SOURCE", Float.toString(cropRect.right) + "___" + Float.toString(cropRect.bottom));
+        Log.d("SOURCE", Float.toString(cropRect.right) + "w___h" + Float.toString(cropRect.bottom));
         // A float array of the destination vertices in clockwise order.
         float[] destination = {
                 0f,
@@ -358,4 +298,7 @@ public class CameraActivity extends AppCompatActivity {
         return matrix;
 
     }
+
+
+
 }
