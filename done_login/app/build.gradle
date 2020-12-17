@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.donelogin"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
@@ -41,13 +41,15 @@ dependencies {
     implementation project(path: ':openCVLibrary3412')
     implementation 'org.tensorflow:tensorflow-lite-support:0.1.0-rc1'
     implementation 'org.tensorflow:tensorflow-lite-metadata:0.1.0-rc1'
-    implementation 'org.tensorflow:tensorflow-lite-gpu:2.2.0'
+    implementation 'org.tensorflow:tensorflow-lite:2.3.0'
+    implementation 'org.tensorflow:tensorflow-lite-gpu:2.3.0'
 //    implementation project(path: ':java')
     testImplementation 'junit:junit:4.+'
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     // Use this dependency to bundle the model with your app
     implementation 'com.google.mlkit:face-detection:16.0.2'
+    implementation 'com.journeyapps:zxing-android-embedded:4.1.0'
 
     // CameraX core library using the camera2 implementation
     def camerax_version = "1.0.0-beta12"

@@ -1,107 +1,114 @@
-//package com.example.donelogin.ml;
-//
-//import android.content.res.AssetManager;
-//import android.graphics.Bitmap;
-//import android.util.Log;
-//import org.tensorflow.lite.Interpreter;
-//
-//import java.io.File;
-//import java.io.IOException;
-//import java.util.HashMap;
-//import java.util.Map;
-//
-//public class FaceAntiSpoofing {
-//    private static final String MODEL_FILE = "FaceAntiSpoofing.tflite";
-//
-//    public static final int INPUT_IMAGE_SIZE = 256; // 需要feed数据的placeholder的图片宽高
-//    public static final float THRESHOLD = 0.2f; // 设置一个阙值，大于这个值认为是攻击
-//
-//    public static final int ROUTE_INDEX = 6; // 训练时观察到的路由索引
-//
-//    public static final int LAPLACE_THRESHOLD = 50; // 拉普拉斯采样阙值
-//    public static final int LAPLACIAN_THRESHOLD = 1000; // 图片清晰度判断阙值
-//
-//    private Interpreter interpreter;
-//
-//    public FaceAntiSpoofing(File modelFile) throws IOException {
-//        Interpreter.Options options = new Interpreter.Options();
-//        options.setNumThreads(4);
-//        interpreter = new Interpreter(modelFile, options);
-//    }
-//
-//    /**
-//     * 活体检测
-//     * @param bitmap
-//     * @return 评分
-//     */
-//    public float antiSpoofing(Bitmap bitmap) {
-//        // 将人脸resize为256X256大小的，因为下面需要feed数据的placeholder的形状是(1, 256, 256, 3)
-//        Bitmap bitmapScale = Bitmap.createScaledBitmap(bitmap, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, true);
-//
-//        float[][][] img = normalizeImage(bitmapScale);
-//        float[][][][] input = new float[1][][][];
-//        input[0] = img;
-//        float[][] clss_pred = new float[1][8];
-//        float[][] leaf_node_mask = new float[1][8];
-//        Map<Integer, Object> outputs = new HashMap<>();
-//        outputs.put(interpreter.getOutputIndex("Identity"), clss_pred);
-//        outputs.put(interpreter.getOutputIndex("Identity_1"), leaf_node_mask);
-//        interpreter.runForMultipleInputsOutputs(new Object[]{input}, outputs);
-//
-//        Log.i("FaceAntiSpoofing", "[" + clss_pred[0][0] + ", " + clss_pred[0][1] + ", "
-//                + clss_pred[0][2] + ", " + clss_pred[0][3] + ", " + clss_pred[0][4] + ", "
-//                + clss_pred[0][5] + ", " + clss_pred[0][6] + ", " + clss_pred[0][7] + "]");
-//        Log.i("FaceAntiSpoofing", "[" + leaf_node_mask[0][0] + ", " + leaf_node_mask[0][1] + ", "
-//                + leaf_node_mask[0][2] + ", " + leaf_node_mask[0][3] + ", " + leaf_node_mask[0][4] + ", "
-//                + leaf_node_mask[0][5] + ", " + leaf_node_mask[0][6] + ", " + leaf_node_mask[0][7] + "]");
-//
-//        return leaf_score1(clss_pred, leaf_node_mask);
-//    }
-//
-//    private float leaf_score1(float[][] clss_pred, float[][] leaf_node_mask) {
-//        float score = 0;
-//        for (int i = 0; i < 8; i++) {
-//            score += Math.abs(clss_pred[0][i]) * leaf_node_mask[0][i];
-//        }
-//        return score;
-//    }
-//
-//    private float leaf_score2(float[][] clss_pred) {
-//        return clss_pred[0][ROUTE_INDEX];
-//    }
-//
-//    /**
-//     * 归一化图片到[0, 1]
-//     * @param bitmap
-//     * @return
-//     */
-//    public static float[][][] normalizeImage(Bitmap bitmap) {
-//        int h = bitmap.getHeight();
-//        int w = bitmap.getWidth();
-//        float[][][] floatValues = new float[h][w][3];
-//
-//        float imageStd = 255;
-//        int[] pixels = new int[h * w];
-//        bitmap.getPixels(pixels, 0, bitmap.getWidth(), 0, 0, w, h);
-//        for (int i = 0; i < h; i++) { // 注意是先高后宽
-//            for (int j = 0; j < w; j++) {
-//                final int val = pixels[i * w + j];
-//                float r = ((val >> 16) & 0xFF) / imageStd;
-//                float g = ((val >> 8) & 0xFF) / imageStd;
-//                float b = (val & 0xFF) / imageStd;
-//
-//                float[] arr = {r, g, b};
-//                floatValues[i][j] = arr;
-//            }
-//        }
-//        return floatValues;
-//    }
-//
-//    /**
-//     * 拉普拉斯算法计算清晰度
-//     * @param bitmap
-//     * @return 分数
-//     */
+package com.example.donelogin.ml;
+
+import android.content.res.AssetManager;
+import android.graphics.Bitmap;
+import android.util.Log;
+import android.widget.TableRow;
+import android.widget.Toast;
+
+import com.example.donelogin.utils.Helper;
+
+import org.opencv.core.Mat;
+import org.tensorflow.lite.Interpreter;
+import org.tensorflow.lite.gpu.CompatibilityList;
+import org.tensorflow.lite.gpu.GpuDelegate;
+import org.tensorflow.lite.support.model.Model;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.FloatBuffer;
+import java.nio.MappedByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.google.android.material.internal.ContextUtils.getActivity;
+
+public class FaceAntiSpoofing {
+    public static final float THRESHOLD = 0.2f;
+
+    public static final int ROUTE_INDEX = 5;
+
+//    public static final int LAPLACE_THRESHOLD = 50;
+//    public static final int LAPLACIAN_THRESHOLD = 1000;
+    private Interpreter interpreter;
+
+    public FaceAntiSpoofing(MappedByteBuffer modelFile) throws IOException {
+        Interpreter.Options options = new Interpreter.Options();
+        CompatibilityList compatList = new CompatibilityList();
+
+        if(compatList.isDelegateSupportedOnThisDevice()){
+            // if the device has a supported GPU, add the GPU delegate
+//            GpuDelegate.Options delegateOptions = compatList.getBestOptionsForThisDevice();
+//            GpuDelegate gpuDelegate = new GpuDelegate(delegateOptions);
+//            options.addDelegate(gpuDelegate);
+            Log.d ("GPU@CPU", "GPU is available!");
+        } else {
+            // if the GPU is not supported, run on 4 threads
+            options.setNumThreads(4);
+            Log.d("GPU@CPU", "GPU not available, use CPU instead!");
+        }
+
+        options.setNumThreads(4);
+        interpreter = new Interpreter(modelFile, options);
+    }
+
+
+    public float score(Mat mat) {
+
+        float[][][] img = Helper.convert8UC3ToFloatArray(mat);
+        float[][][][] input = new float[1][][][];
+        input[0] = img;
+        float[][] clss_pred = new float[1][8];
+        float[][] leaf_node_mask = new float[1][8];
+        Map<Integer, Object> outputs = new HashMap<>();
+        outputs.put(interpreter.getOutputIndex("Identity"), clss_pred);
+        outputs.put(interpreter.getOutputIndex("Identity_1"), leaf_node_mask);
+        long start= System.currentTimeMillis();
+        interpreter.runForMultipleInputsOutputs(new Object[]{input}, outputs);
+        long end= System.currentTimeMillis();
+        Log.d("FAS_TIME", Double.toString(end-start) + " ms");
+
+        Log.d("SCORE CLSS", "[0=" + clss_pred[0][0] + ",1= " + clss_pred[0][1] + ",2= "
+                + clss_pred[0][2] + ",3= " + clss_pred[0][3] + ",4= " + clss_pred[0][4] + ",5= "
+                + clss_pred[0][5] + ",6= " + clss_pred[0][6] + ",7= " + clss_pred[0][7] + "]");
+        Log.d("SCORE MASK", "[" + leaf_node_mask[0][0] + ", " + leaf_node_mask[0][1] + ", "
+                + leaf_node_mask[0][2] + ", " + leaf_node_mask[0][3] + ", " + leaf_node_mask[0][4] + ", "
+                + leaf_node_mask[0][5] + ", " + leaf_node_mask[0][6] + ", " + leaf_node_mask[0][7] + "]");
+
+            return calculateScoreByMin(clss_pred);
+    }
+
+    public boolean isRealFace(Mat mat){
+        float score = score(mat);
+        boolean isReal = score < THRESHOLD;
+        if(isReal){
+            Log.d("SCORE", "REAL " + Float.toString(score));
+        }
+        else{
+            Log.d("SCORE", "FAKE " + Float.toString(score));
+        }
+        return isReal;
+    }
+
+
+    public float calculateScoreByMin(float[][] clss_pred){
+        return Helper.min(clss_pred[0]);
+    }
+
+    private float calculateScoreByMax(float[][] clss_pred, float[][] leaf_node_mask) {
+        float score = 0;
+        for (int i = 0; i < 8; i++) {
+            score += Math.abs(clss_pred[0][i]) * leaf_node_mask[0][i];
+        }
+        return score;
+    }
+
+    private float calculateScoreByIndex(float[][] clss_pred)
+    {
+        return clss_pred[0][ROUTE_INDEX];
+    }
+
+
 //    public int laplacian(Bitmap bitmap) {
 //        // 将人脸resize为256X256大小的，因为下面需要feed数据的placeholder的形状是(1, 256, 256, 3)
 //        Bitmap bitmapScale = Bitmap.createScaledBitmap(bitmap, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, true);
@@ -129,4 +136,7 @@
 //        }
 //        return score;
 //    }
-//}
+
+
+
+}

@@ -26,10 +26,12 @@ import com.google.mlkit.vision.face.FaceDetectorOptions;
 import com.google.mlkit.vision.face.FaceLandmark;
 
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
@@ -37,14 +39,21 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.MappedByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 
 public class FaceDetector {
+
+    private float[] _pre_embedding = null;
+
+    private Executor executor= Executors.newSingleThreadExecutor();
     public static MatOfPoint2f FACE_BASE_LANDMARKS_5 = new MatOfPoint2f(
             new Point(38.2946, 51.6963),
             new Point(73.5318, 51.5014),
@@ -56,11 +65,14 @@ public class FaceDetector {
 
     public static int[] ALIGNED_FACE_SIZE = {112, 112};
     public static int[] CROP_FACE_SIZE = {256, 256};
-    FaceDetectorOptions faceDetectorOptions;
-    com.google.mlkit.vision.face.FaceDetector faceDetector;
-    OverlayView overlayView;
+    private FaceDetectorOptions faceDetectorOptions;
+    private com.google.mlkit.vision.face.FaceDetector faceDetector;
+    private OverlayView overlayView;
+    private FaceAntiSpoofing faceAntiSpoofing;
+    private FaceRecognition faceRecognition;
 
     private static final String FACE_ANTI_SPOOFING_MODEL_FILE = "FaceAntiSpoofing.tflite";
+    private static final String FACE_RECOGNITION_MODEL_FILE = "MobileFaceNet.tflite";
 
     public FaceDetector(AssetManager assetManager) throws IOException {
 
@@ -74,16 +86,19 @@ public class FaceDetector {
         this.faceDetector = FaceDetection.getClient(faceDetectorOptions);
 
         // load antispoofing model file
-
-        Helper.loadModelFile(assetManager, FACE_ANTI_SPOOFING_MODEL_FILE);
+        MappedByteBuffer fasModelFile= Helper.loadModelFile(assetManager, FACE_ANTI_SPOOFING_MODEL_FILE);
+        this.faceAntiSpoofing = new FaceAntiSpoofing(fasModelFile);
+        // load recognition model file
+        MappedByteBuffer frModelFile = Helper.loadModelFile(assetManager, FACE_RECOGNITION_MODEL_FILE);
+        this.faceRecognition = new FaceRecognition(frModelFile);
     }
 
-    public static void drawBoundingBox(OverlayView overlayView, List<Face> faces) {
+    public void drawBoundingBox(OverlayView overlayView, List<Face> faces) {
         overlayView.drawFaceBoundingBox(faces);
     }
 
 
-    public static void alignFace( Bitmap bitmap, Face face) {
+    public void alignFace( Bitmap bitmap, Face face) {
         // crop face
 
 
@@ -100,24 +115,39 @@ public class FaceDetector {
 
         Mat bitmapMat_CV_8UC4 = new Mat();
         // matrix form of rgb image
-        Mat bitmapMat = new Mat();
+        Mat bitmapMat = new Mat(bitmapMat_CV_8UC4.rows(), bitmapMat_CV_8UC4.cols(), CvType.CV_8U);
         Utils.bitmapToMat(bitmap, bitmapMat_CV_8UC4);
         Imgproc.cvtColor(bitmapMat_CV_8UC4, bitmapMat, Imgproc.COLOR_RGBA2RGB);
         Log.d ("BITMAP", bitmapMat.toString());
 
         // get aligned face rgb image for recognition
-        Mat faceMatAligned = new Mat(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], CvType.CV_32F);
+        Mat faceMatAligned = new Mat(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], CvType.CV_8U);
         Imgproc.warpAffine(bitmapMat, faceMatAligned, affineMatrix, new Size(112, 112));
         Log.d("WARP", faceMatAligned.toString());
+        faceMatAligned.convertTo(faceMatAligned, CvType.CV_32F);
+        Core.subtract(faceMatAligned, new Scalar(127.5, 127.5, 127.5), faceMatAligned);
+        Core.divide(faceMatAligned, new Scalar(128.0, 128.0, 128.0), faceMatAligned);
+        double[] temp = faceMatAligned.get(100, 100);
+        Log.d("TEST", temp[0]  + "_" + temp[1] + "_" + temp[2] + "__" + temp.length);
 
         // get cropped face rgb image for antispoofing
         Rect _bbox = face.getBoundingBox();
-        org.opencv.core.Rect bbox = new org.opencv.core.Rect(Math.max((int)_bbox.left, 0), Math.max((int)_bbox.top, 0),
-                Math.min((int)(_bbox.right- _bbox.left), bitmapMat.cols()- _bbox.left), Math.min((int)(_bbox.bottom - _bbox.top), bitmapMat.rows()-_bbox.top));
-        Mat _faceCroppedMat = new Mat(bitmapMat, bbox);
-        Mat faceCroppedMat = new Mat();
-        Imgproc.resize(_faceCroppedMat, faceCroppedMat, new Size(CROP_FACE_SIZE[0], CROP_FACE_SIZE[1]));
+        org.opencv.core.Rect bbox = new org.opencv.core.Rect(
+                Math.max((int)_bbox.left, 0),
+                Math.max((int)_bbox.top, 0),
+                Math.min((int)_bbox.right- (int)_bbox.left, bitmapMat.cols()- (int)_bbox.left),
+                Math.min((int)_bbox.bottom - (int)_bbox.top, bitmapMat.rows()- (int)_bbox.top)
+        );
+        Log.d("ROWBUG", bbox.toString() + "__" + bitmapMat.rows() + "__" + (int)_bbox.top);
 
+        Mat _faceCroppedMat = new Mat(bitmapMat, bbox);
+//        Mat faceCroppedMat = new Mat();
+//        Imgproc.resize(_faceCroppedMat, faceCroppedMat, new Size(CROP_FACE_SIZE[0], CROP_FACE_SIZE[1]));
+//        Log.d("WARP1", faceCroppedMat.toString());
+//        faceCroppedMat.convertTo(faceCroppedMat, CvType.CV_32F);
+//        Core.divide(faceCroppedMat, new Scalar(255.0, 255.0, 255.0), faceCroppedMat);
+//        double[] temp2 = faceCroppedMat.get(100, 100);
+//        Log.d("TEST2", temp2[0]  + "_" + temp2[1] + "_" + temp2[2] + "__" + temp2.length );
 
         //  Test code for aligned face bitmap generator
 //        Bitmap faceBitmapAligned = Bitmap.createBitmap(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], Bitmap.Config.ARGB_8888);
@@ -138,7 +168,20 @@ public class FaceDetector {
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        }
-        
+
+
+        // Perform antispoofing
+//        boolean isReal = faceAntiSpoofing.isRealFace(faceCroppedMat);
+
+        // Perform recognition
+        float[] embedding = this.faceRecognition.getEmbedding(faceMatAligned);
+        if (_pre_embedding == null){
+            Log.d("RECOG", "Assign!");
+            _pre_embedding = embedding;
+        }
+        this.faceRecognition.isSame(embedding, _pre_embedding);
+
+
     }
 
 //    public static String getBatchDirectoryName() {
@@ -153,38 +196,38 @@ public class FaceDetector {
 //        return app_folder_path;
 //    }
 
-    public List<Face> detectFace(ImageProxy imageProxy) {
-        // input image convert
-        @SuppressLint("UnsafeExperimentalUsageError") Image mediaImage = imageProxy.getImage();
-        if (mediaImage != null) {
-            Log.d("IMAGE_PROXY_ROTATION", Integer.toString(imageProxy.getImageInfo().getRotationDegrees()));
-            InputImage inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
-
-            // Pass image to an ML Kit Vision API
-            Task<List<Face>> task =
-                    faceDetector.process(inputImage).addOnCompleteListener(
-                            new OnCompleteListener<List<Face>>() {
-                                @Override
-                                public void onComplete(@NonNull Task<List<Face>> task) {
-                                    imageProxy.close();
-                                    Log.d("DONE", "DONE");
-                                }
-                            }
-                    )
-                            .addOnFailureListener(
-                                    new OnFailureListener() {
-                                        @Override
-                                        public void onFailure(@NonNull Exception e) {
-                                            // Task failed with an exception
-                                            // ...
-                                        }
-                                    });
-            while (!task.isComplete()) {
-            }
-            return task.getResult();
-        }
-        return null;
-    }
+//    public List<Face> detectFace(ImageProxy imageProxy) {
+//        // input image convert
+//        @SuppressLint("UnsafeExperimentalUsageError") Image mediaImage = imageProxy.getImage();
+//        if (mediaImage != null) {
+//            Log.d("IMAGE_PROXY_ROTATION", Integer.toString(imageProxy.getImageInfo().getRotationDegrees()));
+//            InputImage inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
+//
+//            // Pass image to an ML Kit Vision API
+//            Task<List<Face>> task =
+//                    faceDetector.process(inputImage).addOnCompleteListener( executor,
+//                            new OnCompleteListener<List<Face>>() {
+//                                @Override
+//                                public void onComplete(@NonNull Task<List<Face>> task) {
+//                                    imageProxy.close();
+//                                    Log.d("DONE", "DONE");
+//                                }
+//                            }
+//                    )
+//                            .addOnFailureListener( executor,
+//                                    new OnFailureListener() {
+//                                        @Override
+//                                        public void onFailure(@NonNull Exception e) {
+//                                            // Task failed with an exception
+//                                            // ...
+//                                        }
+//                                    });
+//            while (!task.isComplete()) {
+//            }
+//            return task.getResult();
+//        }
+//        return null;
+//    }
 
 //    }
 
@@ -196,7 +239,7 @@ public class FaceDetector {
 //        if (mediaImage != null) {
 //            Log.d("IMAGE_PROXY_ROTATION", Integer.toString(imageProxy.getImageInfo().getRotationDegrees()));
             InputImage inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
-        @SuppressLint("UnsafeExperimentalUsageError") Bitmap inputBitmap = BitmapUtils.getBitmap(imageProxy);
+
 //        InputImage inputImage = InputImage.fromBitmap(inputBitmap, 0);
 
         // Pass image to an ML Kit Vision API
@@ -206,25 +249,18 @@ public class FaceDetector {
                                 new OnSuccessListener<List<Face>>() {
                                     @Override
                                     public void onSuccess(List<Face> faces) {
-                                        imageProxy.close();
                                         drawBoundingBox(overlayView, faces);
-                                        Log.d("DONE", "drawed bounding box!");
-
-                                        for (Face face: faces){
-                                            alignFace(inputBitmap, face);
-                                        }
-
-
                                     }
                                 })
-                        .addOnCompleteListener(
+                        .addOnCompleteListener( executor,
                                 new OnCompleteListener<List<Face>>() {
                                     @Override
                                     public void onComplete(@NonNull Task<List<Face>> task) {
-//                                        imageProxy.close();
-//                                        List<Face> faces = task.getResult();
-//                                        drawBoundingBox(overlayView, faces);
-//                                        Log.d("DONE", "DONE");
+                                        @SuppressLint("UnsafeExperimentalUsageError") Bitmap inputBitmap = BitmapUtils.getBitmap(imageProxy);
+                                        imageProxy.close();
+                                        for (Face face: task.getResult()){
+                                            alignFace(inputBitmap, face);
+                                        }
 
                                     }
                                 }

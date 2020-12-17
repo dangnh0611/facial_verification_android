@@ -59,17 +59,18 @@ import java.util.concurrent.Executors;
 
 public class CameraActivity extends AppCompatActivity {
 
-//    private Executor executor = Executors.newSingleThreadExecutor();
-    private Executor executor= Executors.newFixedThreadPool(4);
+    private Executor executor = Executors.newSingleThreadExecutor();
+//    private Executor executor= Executors.newFixedThreadPool(8);
 
     private OverlayView overlayView;
     private Matrix transformationMatrix=null;
     private FaceDetector faceDetector;
     private int REQUEST_CODE_PERMISSIONS = 1001;
-    private final String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA", "android.permission.WRITE_EXTERNAL_STORAGE"};
+    private final String[] REQUIRED_PERMISSIONS = new String[]{ "android.permission.CAMERA", "android.permission.WRITE_EXTERNAL_STORAGE" };
 
     PreviewView mPreviewView;
     ImageView captureImage;
+    double _temp_time = 0;
 
 
     @Override
@@ -156,7 +157,11 @@ public class CameraActivity extends AppCompatActivity {
                 }
 //                List<Face> faces = faceDetector.detectFace(imageProxy);
 //                faceDetector.drawBoundingBox(overlayView, faces);
+                long start= System.currentTimeMillis();
                 faceDetector.detectFaceAsync(imageProxy, overlayView);
+                long end= System.currentTimeMillis();
+                Log.d("ANALYZE_TIME", Double.toString(end-start) + " ms, start per "+ Double.toString(start- _temp_time));
+                _temp_time= start;
 
             }
         });
