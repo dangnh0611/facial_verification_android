@@ -11,4 +11,6 @@
     <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
     <string name="preview_area">Preview Area</string>
     <string name="capture">Capture</string>
+    <string name= "face_register_warning1">Make sure all parts of your face are not covered by objects and are clearly visible. Your face should be well-lit as well.</string>
+    <string name="face_register_warning2">Security issues: 2D face recognition can be spoofed by your photo, as well as by people with similar appearance or 3D mask,..</string>
 </resources>

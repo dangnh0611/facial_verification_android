@@ -1,7 +1,6 @@
-package com.example.donelogin;
+package com.example.donelogin.activity;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -11,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.example.donelogin.R;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
@@ -25,6 +25,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
 
         FloatingActionButton fab = findViewById(R.id.fab);
         if (!OpenCVLoader.initDebug()) {
@@ -61,6 +62,11 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Scanned: " + result.getContents(), Toast.LENGTH_LONG).show();
             }
+
+            //Test
+            Intent faceRegistrationWarningIntent = new Intent(MainActivity.this, FaceRegistrationWarningActivity.class);
+            startActivity(faceRegistrationWarningIntent);
+
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }

@@ -6,15 +6,14 @@ import android.graphics.Bitmap;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.media.Image;
-import android.os.Environment;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.camera.core.ImageProxy;
 
 import com.example.donelogin.OverlayView;
-import com.example.donelogin.utils.BitmapUtils;
-import com.example.donelogin.utils.Helper;
+import com.example.donelogin.util.BitmapUtils;
+import com.example.donelogin.util.Helper;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -35,16 +34,10 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 

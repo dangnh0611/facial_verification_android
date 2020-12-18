@@ -1,4 +1,4 @@
-package com.example.donelogin.utils;
+package com.example.donelogin.util;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
@@ -11,7 +11,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.List;
 
 public class Helper {
 

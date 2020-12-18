@@ -1,4 +1,5 @@
-package com.example.donelogin;
+package com.example.donelogin.activity;
+
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -9,7 +10,6 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
-import androidx.camera.extensions.HdrImageCaptureExtender;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
@@ -21,43 +21,30 @@ import android.content.pm.PackageManager;
 import androidx.camera.core.ImageProxy;
 
 import android.graphics.Matrix;
-import android.graphics.PointF;
 import android.graphics.Rect;
-import android.media.Image;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.util.Size;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.example.donelogin.OverlayView;
+import com.example.donelogin.R;
 import com.example.donelogin.ml.FaceDetector;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.face.Face;
-import com.google.mlkit.vision.face.FaceDetection;
-import com.google.mlkit.vision.face.FaceDetectorOptions;
-import com.google.mlkit.vision.face.FaceLandmark;
-
-import org.opencv.android.OpenCVLoader;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-public class CameraActivity extends AppCompatActivity {
+public class FaceRegistrationCameraActivity extends AppCompatActivity {
 
     private Executor executor = Executors.newSingleThreadExecutor();
 //    private Executor executor= Executors.newFixedThreadPool(8);
@@ -197,7 +184,7 @@ public class CameraActivity extends AppCompatActivity {
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(CameraActivity.this, "Image Saved successfully", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(FaceRegistrationCameraActivity.this, "Image Saved successfully", Toast.LENGTH_SHORT).show();
                         }
                     });
                 }

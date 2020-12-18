@@ -1,27 +1,17 @@
 package com.example.donelogin.ml;
 
-import android.content.res.AssetManager;
-import android.graphics.Bitmap;
 import android.util.Log;
-import android.widget.TableRow;
-import android.widget.Toast;
 
-import com.example.donelogin.utils.Helper;
+import com.example.donelogin.util.Helper;
 
 import org.opencv.core.Mat;
 import org.tensorflow.lite.Interpreter;
 import org.tensorflow.lite.gpu.CompatibilityList;
-import org.tensorflow.lite.gpu.GpuDelegate;
-import org.tensorflow.lite.support.model.Model;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.FloatBuffer;
 import java.nio.MappedByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-
-import static com.google.android.material.internal.ContextUtils.getActivity;
 
 public class FaceAntiSpoofing {
     public static final float THRESHOLD = 0.2f;

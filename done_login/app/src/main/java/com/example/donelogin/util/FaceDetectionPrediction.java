@@ -1,4 +1,4 @@
-package com.example.donelogin.utils;
+package com.example.donelogin.util;
 
 public class FaceDetectionPrediction {
 

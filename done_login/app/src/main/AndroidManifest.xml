@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.example.donelogin">
 
     <uses-permission android:name="android.permission.CAMERA" />
@@ -12,9 +13,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DOneLogin"
+        android:hardwareAccelerated="true"
         >
         <activity
-            android:name=".MainActivity"
+            android:name=".activity.MainActivity"
             android:label="@string/app_name"
             android:theme="@style/Theme.DOneLogin.NoActionBar">
             <intent-filter>
@@ -23,9 +25,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".CameraActivity">
-
-        </activity>
+        <activity android:name=".activity.CameraActivity"></activity>
+        <activity android:name=".activity.FaceRegistrationWarningActivity"></activity>
+        <activity android:name=".activity.FaceRegistrationCameraActivity"></activity>
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="portrait"
+            tools:replace="android:screenOrientation"
+            android:stateNotNeeded="true"/>
     </application>
 
 </manifest>
