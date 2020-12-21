@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:background="#FFFFFFFF"
+    >
+
+
+<androidx.camera.view.PreviewView
+    android:id="@+id/previewView"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_marginBottom="8dp"
+    android:contentDescription="@string/preview_area"
+    android:importantForAccessibility="no"
+    app:scaleType="fitCenter"
+    app:layout_constraintDimensionRatio="H,3:4"
+    tools:ignore="MissingConstraints" />
+
+    <com.example.donelogin.OverlayView
+        android:id="@+id/overlayView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/previewView"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="@+id/previewView"
+        app:layout_constraintTop_toTopOf="@+id/previewView"
+        app:layout_constraintEnd_toEndOf="@+id/previewView"
+        app:layout_constraintVertical_bias="0.0"
+        />
+
+<LinearLayout
+    android:id="@+id/linearLayout"
+    android:layout_width="match_parent"
+    android:layout_height="100dp"
+    android:layout_gravity="bottom"
+    android:layout_marginStart="8dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginBottom="8dp"
+    android:gravity="center_horizontal"
+    android:orientation="horizontal"
+    android:background="#ffffff"
+    android:weightSum="3"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintEnd_toEndOf="parent">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/capture"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        app:cardBackgroundColor="#000000"
+        app:cardCornerRadius="18dp">
+
+        <ImageView
+            android:id="@+id/captureImg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/capture" />
+
+    </androidx.cardview.widget.CardView>
+
+</LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
