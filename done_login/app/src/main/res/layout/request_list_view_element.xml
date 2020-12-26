@@ -5,7 +5,32 @@
     android:layout_margin="10dp"
     android:background="#ffffffff"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="12dp"
+    android:backgroundTint="#42f581">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Requested at:"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"/>
+
+        <TextView
+            android:id="@+id/txtTime2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10dp"
+            android:text=""
+            android:textSize="15sp"
+            android:textColor="@color/black"/>
+    </LinearLayout>
+
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -21,7 +46,7 @@
             android:textColor="@color/black"/>
 
         <TextView
-            android:id="@+id/txtName"
+            android:id="@+id/txtName2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="10dp"
@@ -44,7 +69,7 @@
             android:textColor="@color/black"/>
 
         <TextView
-            android:id="@+id/txtEmail"
+            android:id="@+id/txtEmail2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="10dp"
@@ -52,7 +77,5 @@
             android:textSize="15sp"
             android:textColor="@color/black"/>
     </LinearLayout>
-
-
 
 </LinearLayout>

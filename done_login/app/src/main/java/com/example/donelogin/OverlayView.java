@@ -22,9 +22,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Defines an overlay on which the boxes and text will be drawn.
-public class OverlayView extends SurfaceView implements SurfaceHolder.Callback{
-    private Paint boxPaint, textPaint, dotPaint;
-    public List<Face> faces;
+public class OverlayView extends SurfaceView implements SurfaceHolder.Callback {
+    private Paint boxPaint, dotPaint, textInfoPaint, textWarningPaint, textErrorPaint;
+    private List<Face> faces;
+    private String msg;
+    private int msgType;
+    public static final int MSG_TYPE_ERROR = 0;
+    public static final int MSG_TYPE_WARNING = 1;
+    public static final int MSG_TYPE_INFO = 2;
     Matrix matrix;
 
 
@@ -37,10 +42,21 @@ public class OverlayView extends SurfaceView implements SurfaceHolder.Callback{
         dotPaint= new Paint();
         dotPaint.setColor(Color.GREEN);
 
-        textPaint=new Paint();
-        textPaint.setColor(Color.WHITE);
-        textPaint.setStrokeWidth(2.0f);
-        textPaint.setTextSize(32f);
+        textInfoPaint=new Paint();
+        textInfoPaint.setColor(Color.WHITE);
+        textInfoPaint.setStrokeWidth(2.0f);
+        textInfoPaint.setTextSize(45f);
+
+        textWarningPaint=new Paint();
+        textWarningPaint.setColor(Color.GREEN);
+        textWarningPaint.setStrokeWidth(2.0f);
+        textWarningPaint.setTextSize(45f);
+
+        textErrorPaint=new Paint();
+        textErrorPaint.setColor(Color.RED);
+        textErrorPaint.setStrokeWidth(2.0f);
+        textErrorPaint.setTextSize(45f);
+
     }
 
     @Override
@@ -67,10 +83,23 @@ public class OverlayView extends SurfaceView implements SurfaceHolder.Callback{
                 Log.d("ONDRAW_SECOND", processedBbox.toString());
                 // Draw boxes and text
                 canvas.drawRoundRect( processedBbox , 16f , 16f , boxPaint );
+                Paint textPaint;
+                switch (this.msgType){
+                    case MSG_TYPE_WARNING:
+                        textPaint= textWarningPaint;
+                        break;
+                    case MSG_TYPE_INFO:
+                        textPaint= textInfoPaint;
+                        break;
+                    case MSG_TYPE_ERROR:
+                        textPaint= textErrorPaint;
+                        break;
+                    default:
+                        textPaint = textErrorPaint;
+                }
                 canvas.drawText(
-                        Float.toString(face.getHeadEulerAngleY()),
-                        processedBbox.centerX() ,
-                        processedBbox.centerY() ,
+                        msg,
+                        0,150,
                         textPaint
                 );
                 List<FaceLandmark> landmarks = face.getAllLandmarks();
@@ -94,16 +123,26 @@ public class OverlayView extends SurfaceView implements SurfaceHolder.Callback{
         return pointf;
     }
 
-    public void setFaces(List<Face> faces){
+    private void setFaces(List<Face> faces){
         this.faces= faces;
+    }
+
+    private void setMsg(String msg){
+        this.msg= msg;
+    }
+
+    private void setMsgType(int msgType){
+        this.msgType= msgType;
     }
 
     public void setTransformationMatrix(Matrix matrix){
         this.matrix=matrix;
     }
 
-    public void drawFaceBoundingBox(List<Face> faces){
+    public void drawFaceBoundingBox(List<Face> faces, String msg, int msgType){
         this.setFaces(faces);
+        this.setMsg(msg);
+        this.setMsgType(msgType);
         this.invalidate();
     }
 

@@ -7,7 +7,6 @@ import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
@@ -16,53 +15,76 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import androidx.camera.core.ImageProxy;
+import androidx.room.Room;
 
 import android.graphics.Matrix;
 import android.graphics.Rect;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.Handler;
-import android.os.Looper;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
 import com.example.donelogin.OverlayView;
 import com.example.donelogin.R;
-import com.example.donelogin.ml.FaceDetector;
+import com.example.donelogin.adapter.AccountAdapter;
+import com.example.donelogin.ml.FaceLoginPipeline;
+import com.example.donelogin.model.Account;
+import com.example.donelogin.model.AccountDao;
+import com.example.donelogin.model.AppDatabase;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.io.File;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-public class CameraActivity extends AppCompatActivity {
+public class FaceLoginCameraActivity extends AppCompatActivity {
 
     private Executor executor = Executors.newSingleThreadExecutor();
 //    private Executor executor= Executors.newFixedThreadPool(8);
 
     private OverlayView overlayView;
     private Matrix transformationMatrix=null;
-    private FaceDetector faceDetector;
+    private FaceLoginPipeline faceLoginPipeline;
     private int REQUEST_CODE_PERMISSIONS = 1001;
     private final String[] REQUIRED_PERMISSIONS = new String[]{ "android.permission.CAMERA", "android.permission.WRITE_EXTERNAL_STORAGE" };
-
+    private int verificationStatus = 1; // 1 indicate waiting
     PreviewView mPreviewView;
     ImageView captureImage;
     double _temp_time = 0;
+    private String keyAlias="";
+    private String mfaCode = "";
+    private int deviceId;
+    private float[][] faceEmbeddings;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.camera);
+        setContentView(R.layout.face_registration_camera);
 
         mPreviewView = findViewById(R.id.previewView);
 
@@ -74,17 +96,40 @@ public class CameraActivity extends AppCompatActivity {
         overlayView.setWillNotDraw( false );
         overlayView.setZOrderOnTop( true );
 
-        try {
-            faceDetector=new FaceDetector(getAssets());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
         if(allPermissionsGranted()){
             startCamera(); //start camera if permission has been granted by user
         } else{
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
         }
+
+        Bundle extras = getIntent().getExtras();
+        mfaCode = extras.getString("mfa_code");
+        deviceId = Integer.valueOf(extras.getString("device_id")) ;
+        Log.d("LOGIN", mfaCode + "___" + deviceId);
+
+        AppDatabase db= Room.databaseBuilder(this.getApplicationContext(),
+                AppDatabase.class, AppDatabase.DB_NAME).build();
+        AccountDao accountDao = db.accountDao();
+        new AsyncTask<Void, Void, Account>() {
+            @SuppressLint("StaticFieldLeak")
+            @Override
+            protected Account doInBackground(Void... voids) {
+                Account account = accountDao.getAccountByDeviceId(deviceId);
+                return account;
+            }
+            @Override
+            protected void onPostExecute (Account account){
+                if(account==null) return;
+                keyAlias = account.keyAlias;
+                faceEmbeddings = account.embeddings;
+                try {
+                    faceLoginPipeline =new FaceLoginPipeline(getAssets(), faceEmbeddings);
+                    Log.d("LOGIN", faceEmbeddings.length + "___" + faceEmbeddings.toString() + "___" + faceEmbeddings[0][124]);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
     }
 
 
@@ -136,6 +181,7 @@ public class CameraActivity extends AppCompatActivity {
                 /*
                  MAIN ANALYZE CODE GOES HERE
                 */
+
                 // setup transformation Matrix
                 if (transformationMatrix == null){
                     transformationMatrix=getTransformationMatrix(imageProxy, mPreviewView);
@@ -144,11 +190,23 @@ public class CameraActivity extends AppCompatActivity {
 //                List<Face> faces = faceDetector.detectFace(imageProxy);
 //                faceDetector.drawBoundingBox(overlayView, faces);
                 long start= System.currentTimeMillis();
-                faceDetector.detectFaceAsync(imageProxy, overlayView);
+                verificationStatus = faceLoginPipeline.verifyFaceAsync(imageProxy, overlayView);
+
+                Log.d("LOGIN", "analyze!" + verificationStatus);
+                if(verificationStatus==0){
+                    // success
+                    sendLoginStatusRequest(true);
+
+                }
+                else if(verificationStatus == 2){
+                    // failed
+                    sendLoginStatusRequest(false);
+                }
+                else{}
+
                 long end= System.currentTimeMillis();
                 Log.d("ANALYZE_TIME", Double.toString(end-start) + " ms, start per "+ Double.toString(start- _temp_time));
                 _temp_time= start;
-
             }
         });
 
@@ -163,48 +221,94 @@ public class CameraActivity extends AppCompatActivity {
 //            hdrImageCaptureExtender.enableExtension(cameraSelector);
 //        }
 
-        final ImageCapture imageCapture = builder
-                .setTargetRotation(this.getWindowManager().getDefaultDisplay().getRotation())
-                .build();
-
         preview.setSurfaceProvider(mPreviewView.getSurfaceProvider());
 
-        Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector, preview, imageAnalysis, imageCapture);
+        Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector, preview, imageAnalysis);
 
-        captureImage.setOnClickListener(v -> {
-
-            SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
-            File file = new File(getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
-
-            ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(file).build();
-            imageCapture.takePicture(outputFileOptions, executor, new ImageCapture.OnImageSavedCallback () {
-                @Override
-                public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(CameraActivity.this, "Image Saved successfully", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-                @Override
-                public void onError(@NonNull ImageCaptureException error) {
-                    error.printStackTrace();
-                }
-            });
-        });
     }
 
-    public String getBatchDirectoryName() {
 
-        String app_folder_path = "";
-        app_folder_path = Environment.getExternalStorageDirectory().toString() + "/images";
-        File dir = new File(app_folder_path);
-        if (!dir.exists() && !dir.mkdirs()) {
+    private void sendLoginStatusRequest(boolean success) {
+        String status = "fail";
+        if(success){
+            status = "success";
+        }
+        try{
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            PublicKey publicKey =
+                    keyStore.getCertificate(keyAlias).getPublicKey();
+
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(keyAlias, null);
+
+            Signature signer = Signature.getInstance("SHA256withRSA");
+            signer.initSign(privateKey);
+            signer.update(mfaCode.getBytes(StandardCharsets.UTF_8));
+            String signatureBase64Str = Base64.encodeToString(signer.sign(), 0);
+            String publicKeyBase64Str = Base64.encodeToString(publicKey.getEncoded(), 0);
+
+            // Send HTTP request
+            // Instantiate the RequestQueue.
+            RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+            SharedPreferences sharedPreferences = getSharedPreferences("APP_CONFIG", Context.MODE_PRIVATE);
+            String url = sharedPreferences.getString("SERVER_URL", "") + "/login_2fa";
+            Log.d("LOGIN", url);
+
+            JSONObject requestParam = new JSONObject();
+            try {
+                requestParam.put("mfa_code", mfaCode);
+                requestParam.put("device_id", deviceId);
+                requestParam.put("code_signature", signatureBase64Str);
+                requestParam.put("status", status);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            Intent faceLoginSucessIntent = new Intent(FaceLoginCameraActivity.this, FaceRegistrationStatusActivity.class);
+            Log.d("LOGIN", requestParam.toString());
+            JsonObjectRequest faceRegistrationRequest = new JsonObjectRequest
+                    (Request.Method.POST, url, requestParam, new Response.Listener<JSONObject>() {
+                        @Override
+                        public void onResponse(JSONObject response) {
+                            boolean isRequestSuccess = false;
+                            String requestMsg= "";
+                            try {
+                                Log.d("LOGIN", "success voley" + response.toString());
+                                String status = response.getString("status");
+                                if(status.equals("success")){
+                                    isRequestSuccess = true;
+                                    requestMsg = response.getString("msg");
+                                }
+                            } catch (JSONException e) {
+                                requestMsg = "An unexpected error occur!";
+                                e.printStackTrace();
+                            }
+                            faceLoginSucessIntent.putExtra("requestStatus", isRequestSuccess);
+                            faceLoginSucessIntent.putExtra("requestMsg", requestMsg);
+                            faceLoginSucessIntent.putExtra("type", "login");
+                            startActivity(faceLoginSucessIntent);
+                        }
+                    }, new Response.ErrorListener() {
+                        @Override
+                        public void onErrorResponse(VolleyError error) {
+                            // TODO: Handle error
+                            Log.d("LOGIN", "error volley" + error.toString() );
+                            boolean isRequestSuccess= false;
+                            String requestMsg = "An unexpected error occur!";
+                            faceLoginSucessIntent.putExtra("requestStatus", isRequestSuccess);
+                            faceLoginSucessIntent.putExtra("requestMsg", requestMsg);
+                            faceLoginSucessIntent.putExtra("type", "login");
+                            startActivity(faceLoginSucessIntent);
+                        }
+                    });
+
+            // Add the request to the RequestQueue.
+            queue.add(faceRegistrationRequest);
 
         }
-
-        return app_folder_path;
+        catch (Exception e){
+            e.printStackTrace();
+            // ignore
+        }
     }
 
     private boolean allPermissionsGranted(){

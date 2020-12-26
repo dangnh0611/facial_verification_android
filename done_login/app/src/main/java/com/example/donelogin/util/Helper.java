@@ -2,11 +2,13 @@ package com.example.donelogin.util;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
+import android.os.Environment;
 
 import org.opencv.core.Mat;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.MatOfPoint2f;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
@@ -17,6 +19,17 @@ public class Helper {
     public static Mat similarityTransform(MatOfPoint2f src, MatOfPoint2f dst){
         Mat matrix = Calib3d.estimateAffine2D(src, dst);
         return matrix;
+    }
+
+    public static String getBatchDirectoryName() {
+
+        String app_folder_path = "";
+        app_folder_path = Environment.getExternalStorageDirectory().toString() + "/images";
+        File dir = new File(app_folder_path);
+        if (!dir.exists() && !dir.mkdirs()) {
+
+        }
+        return app_folder_path;
     }
 
 

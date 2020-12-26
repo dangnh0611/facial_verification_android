@@ -7,8 +7,6 @@ import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
@@ -17,29 +15,58 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import androidx.camera.core.ImageProxy;
+import androidx.room.Room;
 
 import android.graphics.Matrix;
 import android.graphics.Rect;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.Handler;
-import android.os.Looper;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
 import com.example.donelogin.OverlayView;
 import com.example.donelogin.R;
-import com.example.donelogin.ml.FaceDetector;
+import com.example.donelogin.ml.FaceRegistrationPipeline;
+import com.example.donelogin.model.Account;
+import com.example.donelogin.model.AccountDao;
+import com.example.donelogin.model.AppDatabase;
+import com.example.donelogin.util.Security;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.firebase.messaging.FirebaseMessaging;
 
-import java.io.File;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -51,32 +78,44 @@ public class FaceRegistrationCameraActivity extends AppCompatActivity {
 
     private OverlayView overlayView;
     private Matrix transformationMatrix=null;
-    private FaceDetector faceDetector;
+    private FaceRegistrationPipeline faceRegistrationPipeline;
+
+    AppDatabase db;
+
     private int REQUEST_CODE_PERMISSIONS = 1001;
     private final String[] REQUIRED_PERMISSIONS = new String[]{ "android.permission.CAMERA", "android.permission.WRITE_EXTERNAL_STORAGE" };
 
     PreviewView mPreviewView;
     ImageView captureImage;
+
+    // test
     double _temp_time = 0;
+
+    private boolean isRequestSuccess =false;
+    private String requestMsg = "";
+
+    ArrayList<float[]> embeddings;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.camera);
+        setContentView(R.layout.face_registration_camera);
 
         mPreviewView = findViewById(R.id.previewView);
 
         // Overlay View for bounding box drawing, ..
         overlayView = (OverlayView) findViewById( R.id.overlayView);
-        captureImage = findViewById(R.id.captureImg);
 
         // Necessary to keep the Overlay above the TextureView so that the boxes are visible.
         overlayView.setWillNotDraw( false );
         overlayView.setZOrderOnTop( true );
 
+        db= Room.databaseBuilder(getApplicationContext(),
+                AppDatabase.class, AppDatabase.DB_NAME).build();
+
         try {
-            faceDetector=new FaceDetector(getAssets());
+            faceRegistrationPipeline =new FaceRegistrationPipeline(getAssets());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -142,18 +181,154 @@ public class FaceRegistrationCameraActivity extends AppCompatActivity {
                     transformationMatrix=getTransformationMatrix(imageProxy, mPreviewView);
                     overlayView.setTransformationMatrix(transformationMatrix);
                 }
+
 //                List<Face> faces = faceDetector.detectFace(imageProxy);
 //                faceDetector.drawBoundingBox(overlayView, faces);
                 long start= System.currentTimeMillis();
-                faceDetector.detectFaceAsync(imageProxy, overlayView);
+                embeddings= faceRegistrationPipeline.detectFaceAsync(imageProxy, overlayView);
+                if(embeddings!=null){
+                    Log.d("WOW", "embedding list size "+ embeddings.size());
+                    Intent faceRegistrationSucessIntent = new Intent(FaceRegistrationCameraActivity.this, FaceRegistrationStatusActivity.class);
+                    Bundle extras = getIntent().getExtras();
+                    String deviceName = android.os.Build.MODEL;
+                    String deviceBrand = android.os.Build.MANUFACTURER;
+                    int deviceAPILevel = Build.VERSION.SDK_INT;
+                    String deviceOS = Build.VERSION.RELEASE;
+                    Log.d("DETAIL", deviceName + "__" + deviceBrand + "__" + deviceOS + "__" + deviceAPILevel );
+
+                    // Generate key pair
+                    String keyAlias = Security.generateRandomString();
+                    String publicKeyBase64Str="";
+                    String signatureBase64Str="";
+                    String code = extras.getString("code");
+                    try {
+                        Security.generateKeyPair(keyAlias);
+                        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+                        keyStore.load(null);
+                        PublicKey publicKey =
+                                keyStore.getCertificate(keyAlias).getPublicKey();
+
+                        PrivateKey privateKey = (PrivateKey) keyStore.getKey(keyAlias, null);
+
+                        Signature signer = Signature.getInstance("SHA256withRSA");
+                        signer.initSign(privateKey);
+                        signer.update(code.getBytes(StandardCharsets.UTF_8));
+                        signatureBase64Str = Base64.encodeToString(signer.sign(), 0);
+
+                        publicKeyBase64Str = Base64.encodeToString(publicKey.getEncoded(), 0);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+
+                    // get device FCM token
+                    Task<String> task = FirebaseMessaging.getInstance().getToken()
+                            .addOnCompleteListener(new OnCompleteListener<String>() {
+                                @Override
+                                public void onComplete(@NonNull Task<String> task) {
+                                    if (!task.isSuccessful()) {
+                                        Log.w("FCM", "Fetching FCM registration token failed", task.getException());
+                                        return;
+                                    }
+                                    // Get new FCM registration token
+                                    String _token = task.getResult();
+
+                                    // Log and toast
+                                    Log.d("FCM", _token);
+                                }
+                            });
+
+                    while(!task.isComplete()){}
+                    String token = task.getResult();
+
+                    // Instantiate the RequestQueue.
+                    RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+                    SharedPreferences sharedPreferences = getSharedPreferences("APP_CONFIG", Context.MODE_PRIVATE);
+                    String url = sharedPreferences.getString("SERVER_URL", "") + "/device_registration";
+                    Log.d("REGIST", url);
+
+                    JSONObject requestParam = new JSONObject();
+                    try {
+                        requestParam.put("code", code);
+                        requestParam.put("public_key", publicKeyBase64Str);
+                        requestParam.put("device_model", deviceBrand + " " + deviceName);
+                        requestParam.put("device_os", "Android " + deviceOS + " (API level " + deviceAPILevel + ")" );
+                        requestParam.put("code_signature", signatureBase64Str);
+                        requestParam.put("fcm_token", token);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+
+                    Log.d("REGIST", requestParam.toString());
+                    JsonObjectRequest faceRegistrationRequest = new JsonObjectRequest
+                            (Request.Method.POST, url, requestParam, new Response.Listener<JSONObject>() {
+                                @Override
+                                public void onResponse(JSONObject response) {
+                                    try {
+                                        Log.d("REGIST", "success volley" + response.toString());
+                                        String status = response.getString("status");
+                                        if(status.equals("success")){
+                                            isRequestSuccess = true;
+                                            requestMsg = "";
+                                            int deviceID = response.getInt("device_id");
+
+                                            Account newAccount = new Account();
+                                            newAccount.username = extras.getString("username");
+                                            newAccount.email = extras.getString("email");
+                                            newAccount.device_id = deviceID;
+                                            newAccount.keyAlias = keyAlias;
+                                            float[][] _embeddings = new float[5][128];
+                                            for (int i =0; i<5; i++){
+                                                _embeddings[i] = embeddings.get(i);
+                                            }
+                                            newAccount.embeddings = _embeddings;
+
+                                            AccountDao accountDao = db.accountDao();
+                                            AsyncTask.execute(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    accountDao.insertAll(newAccount);
+                                                }
+                                            });
+
+                                        }
+                                        else{
+                                            isRequestSuccess = false;
+                                            requestMsg = response.getString("msg");
+                                        }
+                                    } catch (JSONException e) {
+                                        isRequestSuccess= false;
+                                        requestMsg = "An unexpected error occur!";
+                                        e.printStackTrace();
+                                    }
+                                    faceRegistrationSucessIntent.putExtra("requestStatus", isRequestSuccess);
+                                    faceRegistrationSucessIntent.putExtra("requestMsg", requestMsg);
+                                    faceRegistrationSucessIntent.putExtras(extras);
+                                    startActivity(faceRegistrationSucessIntent);
+                                }
+                            }, new Response.ErrorListener() {
+                                @Override
+                                public void onErrorResponse(VolleyError error) {
+                                    // TODO: Handle error
+                                    Log.d("REGIST", "error volley" + error.toString() );
+                                    isRequestSuccess= false;
+                                    requestMsg = "An unexpected error occur!";
+                                    faceRegistrationSucessIntent.putExtra("requestStatus", isRequestSuccess);
+                                    faceRegistrationSucessIntent.putExtra("requestMsg", requestMsg);
+                                    faceRegistrationSucessIntent.putExtras(extras);
+                                    startActivity(faceRegistrationSucessIntent);
+                                }
+                            });
+
+                    // Add the request to the RequestQueue.
+                    queue.add(faceRegistrationRequest);
+                }
                 long end= System.currentTimeMillis();
                 Log.d("ANALYZE_TIME", Double.toString(end-start) + " ms, start per "+ Double.toString(start- _temp_time));
                 _temp_time= start;
-
             }
         });
 
-        ImageCapture.Builder builder = new ImageCapture.Builder();
 
         //Vendor-Extensions (The CameraX extensions dependency in build.gradle)
 //        HdrImageCaptureExtender hdrImageCaptureExtender = HdrImageCaptureExtender.create(builder);
@@ -164,49 +339,11 @@ public class FaceRegistrationCameraActivity extends AppCompatActivity {
 //            hdrImageCaptureExtender.enableExtension(cameraSelector);
 //        }
 
-        final ImageCapture imageCapture = builder
-                .setTargetRotation(this.getWindowManager().getDefaultDisplay().getRotation())
-                .build();
-
         preview.setSurfaceProvider(mPreviewView.getSurfaceProvider());
 
-        Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector, preview, imageAnalysis, imageCapture);
-
-        captureImage.setOnClickListener(v -> {
-
-            SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
-            File file = new File(getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
-
-            ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(file).build();
-            imageCapture.takePicture(outputFileOptions, executor, new ImageCapture.OnImageSavedCallback () {
-                @Override
-                public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(FaceRegistrationCameraActivity.this, "Image Saved successfully", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-                @Override
-                public void onError(@NonNull ImageCaptureException error) {
-                    error.printStackTrace();
-                }
-            });
-        });
+        Camera camera = cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector, preview, imageAnalysis);
     }
 
-    public String getBatchDirectoryName() {
-
-        String app_folder_path = "";
-        app_folder_path = Environment.getExternalStorageDirectory().toString() + "/images";
-        File dir = new File(app_folder_path);
-        if (!dir.exists() && !dir.mkdirs()) {
-
-        }
-
-        return app_folder_path;
-    }
 
     private boolean allPermissionsGranted(){
 
@@ -219,7 +356,6 @@ public class FaceRegistrationCameraActivity extends AppCompatActivity {
     }
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-
         if(requestCode == REQUEST_CODE_PERMISSIONS){
             if(allPermissionsGranted()){
                 startCamera();

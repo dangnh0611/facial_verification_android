@@ -42,9 +42,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 
-public class FaceDetector {
-
-    private float[] _pre_embedding = null;
+public class FaceLoginPipeline {
+    private boolean trueReal = false;
+    private int nFail = 0;
+    private float[][] savedFaceEmbeddings;
 
     private Executor executor= Executors.newSingleThreadExecutor();
     public static MatOfPoint2f FACE_BASE_LANDMARKS_5 = new MatOfPoint2f(
@@ -67,8 +68,8 @@ public class FaceDetector {
     private static final String FACE_ANTI_SPOOFING_MODEL_FILE = "FaceAntiSpoofing.tflite";
     private static final String FACE_RECOGNITION_MODEL_FILE = "MobileFaceNet.tflite";
 
-    public FaceDetector(AssetManager assetManager) throws IOException {
-
+    public FaceLoginPipeline(AssetManager assetManager, float[][] savedFaceEmbeddings) throws IOException {
+        this.savedFaceEmbeddings = savedFaceEmbeddings;
         // Start MLKit Face detector
         this.faceDetectorOptions = new FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -86,15 +87,28 @@ public class FaceDetector {
         this.faceRecognition = new FaceRecognition(frModelFile);
     }
 
-    public void drawBoundingBox(OverlayView overlayView, List<Face> faces) {
-        overlayView.drawFaceBoundingBox(faces);
+    private void updateOverlayView(OverlayView overlayView, List<Face> faces) {
+        String msg= "";
+        int numFace = faces.size();
+        if(numFace != 1){
+            msg="ERROR: " + numFace + " face detected!";
+            overlayView.drawFaceBoundingBox(faces, msg, OverlayView.MSG_TYPE_ERROR);
+        }
+        else{
+            float xRotation = faces.get(0).getHeadEulerAngleX();
+            float yRotation = faces.get(0).getHeadEulerAngleY();
+            msg= String.format("Y Angle: %d° | X Angle: %d°", (int)yRotation, (int)xRotation);
+            overlayView.drawFaceBoundingBox(faces, msg, OverlayView.MSG_TYPE_INFO);
+        }
+
     }
 
 
-    public void alignFace( Bitmap bitmap, Face face) {
-        // crop face
-
-
+    public void recogniteAndUpdateState( Bitmap bitmap, Face face) {
+        if(this.trueReal){
+            Log.d("LOGIN", "end here");
+            return;
+        }
         // Get affine similarity transformation matrix base on facial landmarks
         ArrayList<Point> faceLandmarks = new ArrayList<Point>();
         for (int landmarkType : LANDMARKS_5) {
@@ -128,19 +142,17 @@ public class FaceDetector {
         org.opencv.core.Rect bbox = new org.opencv.core.Rect(
                 Math.max((int)_bbox.left, 0),
                 Math.max((int)_bbox.top, 0),
-                Math.min((int)_bbox.right- (int)_bbox.left, bitmapMat.cols()- (int)_bbox.left),
-                Math.min((int)_bbox.bottom - (int)_bbox.top, bitmapMat.rows()- (int)_bbox.top)
+                Math.min((int)_bbox.right- (int)_bbox.left, bitmapMat.cols()- 1- (int)_bbox.left),
+                Math.min((int)_bbox.bottom - (int)_bbox.top, bitmapMat.rows() -1- (int)_bbox.top)
         );
         Log.d("ROWBUG", bbox.toString() + "__" + bitmapMat.rows() + "__" + (int)_bbox.top);
 
         Mat _faceCroppedMat = new Mat(bitmapMat, bbox);
-//        Mat faceCroppedMat = new Mat();
-//        Imgproc.resize(_faceCroppedMat, faceCroppedMat, new Size(CROP_FACE_SIZE[0], CROP_FACE_SIZE[1]));
-//        Log.d("WARP1", faceCroppedMat.toString());
-//        faceCroppedMat.convertTo(faceCroppedMat, CvType.CV_32F);
-//        Core.divide(faceCroppedMat, new Scalar(255.0, 255.0, 255.0), faceCroppedMat);
-//        double[] temp2 = faceCroppedMat.get(100, 100);
-//        Log.d("TEST2", temp2[0]  + "_" + temp2[1] + "_" + temp2[2] + "__" + temp2.length );
+        Mat faceCroppedMat = new Mat();
+        Imgproc.resize(_faceCroppedMat, faceCroppedMat, new Size(CROP_FACE_SIZE[0], CROP_FACE_SIZE[1]));
+        Log.d("WARP1", faceCroppedMat.toString());
+        faceCroppedMat.convertTo(faceCroppedMat, CvType.CV_32F);
+        Core.divide(faceCroppedMat, new Scalar(255.0, 255.0, 255.0), faceCroppedMat);
 
         //  Test code for aligned face bitmap generator
 //        Bitmap faceBitmapAligned = Bitmap.createBitmap(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], Bitmap.Config.ARGB_8888);
@@ -153,7 +165,7 @@ public class FaceDetector {
 
       // Test code
 //        SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
-//        File file = new File(getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
+//        File file = new File(Helper.getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
 //
 //        try (FileOutputStream out = new FileOutputStream(file)) {
 //            faceBitmapAligned.compress(Bitmap.CompressFormat.PNG, 100, out); // bmp is your Bitmap instance
@@ -162,32 +174,34 @@ public class FaceDetector {
 //            e.printStackTrace();
 //        }
 
-
-        // Perform antispoofing
-//        boolean isReal = faceAntiSpoofing.isRealFace(faceCroppedMat);
-
         // Perform recognition
         float[] embedding = this.faceRecognition.getEmbedding(faceMatAligned);
-        if (_pre_embedding == null){
-            Log.d("RECOG", "Assign!");
-            _pre_embedding = embedding;
+        boolean isSame = false;
+        for(float[] savedEmbedding : savedFaceEmbeddings ){
+            boolean _isSame = this.faceRecognition.isSame(embedding, savedEmbedding);
+            if(_isSame==true){
+                isSame = true;
+                break;
+            }
         }
-        this.faceRecognition.isSame(embedding, _pre_embedding);
-
+        // if it is a same face, check liveness
+        if(isSame){
+            // Perform antispoofing
+            boolean isReal = faceAntiSpoofing.isRealFace(faceCroppedMat);
+            if(isReal){
+                this.trueReal = true;
+                Log.d("LOGIN", "SAME, REAL");
+            }
+            else{
+                Log.d("LOGIN", "SAME, FAKE");
+            }
+        }
+        else{
+            Log.d("LOGIN", "DIFFERENT");
+        }
 
     }
 
-//    public static String getBatchDirectoryName() {
-//
-//        String app_folder_path = "";
-//        app_folder_path = Environment.getExternalStorageDirectory().toString() + "/images";
-//        File dir = new File(app_folder_path);
-//        if (!dir.exists() && !dir.mkdirs()) {
-//
-//        }
-//
-//        return app_folder_path;
-//    }
 
 //    public List<Face> detectFace(ImageProxy imageProxy) {
 //        // input image convert
@@ -224,7 +238,18 @@ public class FaceDetector {
 
 //    }
 
-    public void detectFaceAsync(ImageProxy imageProxy, OverlayView overlayView) {
+    /*
+    Return:
+        0: OK
+        1: WAITING, continue to verify
+        2: FAIL, stop verify
+     */
+    public int verifyFaceAsync(ImageProxy imageProxy, OverlayView overlayView) {
+        if(this.trueReal==true){
+            Log.d("LOGIN", "return");
+//            imageProxy.close();
+            return 0;
+        }
         // input image convert
         @SuppressLint("UnsafeExperimentalUsageError") Image mediaImage = imageProxy.getImage();
 //        Image.Plane[] planes = mediaImage.getPlanes();
@@ -242,19 +267,24 @@ public class FaceDetector {
                                 new OnSuccessListener<List<Face>>() {
                                     @Override
                                     public void onSuccess(List<Face> faces) {
-                                        drawBoundingBox(overlayView, faces);
+                                        updateOverlayView(overlayView, faces);
                                     }
                                 })
                         .addOnCompleteListener( executor,
                                 new OnCompleteListener<List<Face>>() {
                                     @Override
                                     public void onComplete(@NonNull Task<List<Face>> task) {
-                                        @SuppressLint("UnsafeExperimentalUsageError") Bitmap inputBitmap = BitmapUtils.getBitmap(imageProxy);
-                                        imageProxy.close();
-                                        for (Face face: task.getResult()){
-                                            alignFace(inputBitmap, face);
+                                        List<Face> faces = task.getResult();
+                                        if(faces.size()>0){
+                                            @SuppressLint("UnsafeExperimentalUsageError") Bitmap inputBitmap = BitmapUtils.getBitmap(imageProxy);
+                                            imageProxy.close();
+                                            for (Face face: faces) {
+                                                recogniteAndUpdateState(inputBitmap, face);
+                                            }
                                         }
-
+                                        else{
+                                            imageProxy.close();
+                                        }
                                     }
                                 }
                         )
@@ -266,6 +296,7 @@ public class FaceDetector {
                                         // ...
                                     }
                                 });
+        return 1;
     }
 
 

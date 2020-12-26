@@ -29,8 +29,8 @@ public class AccountAdapter extends ArrayAdapter<Account> {
         }
         TextView txtName = (TextView) convertView.findViewById(R.id.txtName);
         TextView txtEmail = (TextView) convertView.findViewById(R.id.txtEmail);
-        txtName.setText(getItem(position).getUserName());
-        txtEmail.setText(getItem(position).getEmail());
+        txtName.setText(getItem(position).username);
+        txtEmail.setText(getItem(position).email);
         return convertView;
     }
 }

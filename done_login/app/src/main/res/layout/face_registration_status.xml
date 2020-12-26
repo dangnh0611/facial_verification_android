@@ -15,6 +15,7 @@
         >
 
         <TextView
+            android:id="@+id/face_registration_status"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:text="@string/face_register_success_header"
@@ -34,6 +35,7 @@
             android:src="@mipmap/face_recognition" />
 
         <TextView
+            android:id="@+id/face_registration_msg"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:text="@string/face_register_success"

@@ -12,7 +12,12 @@
         xmlns:tools="http://schemas.android.com/tools"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="15dp"
+        android:layout_marginBottom="15dp"
+        >
 
 <!--        <TextView-->
 <!--            android:layout_width="match_parent"-->
@@ -23,11 +28,59 @@
 <!--            android:textColor="#ffffff"-->
 <!--            android:textSize="30sp"-->
 <!--            android:textStyle="bold" />-->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:text="WAITING REQUESTS"
+            android:textSize="20dp"
+            android:layout_gravity="center_horizontal"
+            android:gravity="center_horizontal"
+            android:textColor="@color/black">
+        </TextView>
+        <TextView
+            android:id="@+id/request_text_view"
+            android:layout_width="match_parent"
+            android:layout_height="25dp"
+            android:text="There are currently no access request."
+            android:textSize="15dp"
+            >
+        </TextView>
+        <ListView
+            android:id="@+id/request_list_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clickable="true"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_margin="20dp"
+            android:background="@color/black">
+    </View>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:text="ACCOUNTS"
+            android:textSize="20dp"
+            android:layout_gravity="center_horizontal"
+            android:gravity="center_horizontal"
+            android:textColor="@color/black">
+        </TextView>
+        <TextView
+            android:id="@+id/account_text_view"
+            android:layout_width="match_parent"
+            android:layout_height="25dp"
+            android:text="There are no account associated with this device."
+            android:textSize="15dp"
+            >
+        </TextView>
 
         <ListView
             android:id="@+id/account_list_view"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:clickable="true"/>
 
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

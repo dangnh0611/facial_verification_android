@@ -35,33 +35,37 @@ android:background="#FFFFFFFF"
 <LinearLayout
     android:id="@+id/linearLayout"
     android:layout_width="match_parent"
-    android:layout_height="100dp"
+    android:layout_height="0dp"
+
     android:layout_gravity="bottom"
     android:layout_marginStart="8dp"
     android:layout_marginEnd="8dp"
     android:layout_marginBottom="8dp"
-    android:gravity="center_horizontal"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:background="#ffffff"
-    android:weightSum="3"
+    android:padding="20dp"
+    app:layout_constraintTop_toBottomOf="@+id/previewView"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintEnd_toEndOf="parent">
 
-    <androidx.cardview.widget.CardView
-        android:id="@+id/capture"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
+<TextView
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:text="@string/face_register_camera_instruction"
+    android:textSize="25dp"
+    android:textColor="#000000">
+
+</TextView>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
         android:layout_weight="1"
-        app:cardBackgroundColor="#000000"
-        app:cardCornerRadius="18dp">
+        android:text="@string/face_register_camera_instruction2"
+        android:textSize="20dp"
+        android:textColor="#000000">
 
-        <ImageView
-            android:id="@+id/captureImg"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:contentDescription="@string/capture" />
-
-    </androidx.cardview.widget.CardView>
+    </TextView>
 
 </LinearLayout>
 

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "275182575430",
+    "project_id": "donelogin-9f53f",
+    "storage_bucket": "donelogin-9f53f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:275182575430:android:e9ae3a74b36bd72bc18f47",
+        "android_client_info": {
+          "package_name": "com.example.donelogin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "275182575430-h8end93oad1n0bg8dqpg4ki0ddcsrjqv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMQkT1NtsDq1-u-vVgcC4x-68UmB5NRdo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "275182575430-h8end93oad1n0bg8dqpg4ki0ddcsrjqv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

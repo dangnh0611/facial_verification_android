@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.media.Image;
+import android.os.Environment;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -34,15 +35,30 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 
-public class FaceRegistratorPipeline {
+public class FaceRegistrationPipeline {
+    private ArrayList<float[]> faceEmbeddings = new ArrayList<float[]>();
+    private boolean[] hasFaces = new boolean[] {false, false, false, false, false};
+
+    public static final float[][][] angleXY = new float[][][]{
+            { {-10, 10}, {-10, 10} },
+            { {-10, 10}, {15, 30} },
+            { {-10, 10}, {-30, -15} },
+            { {15, 30}, {-10, 10} },
+            { {-30, -15}, {-10, 10} }
+    };
 
     private Executor executor= Executors.newSingleThreadExecutor();
     public static MatOfPoint2f FACE_BASE_LANDMARKS_5 = new MatOfPoint2f(
@@ -61,7 +77,7 @@ public class FaceRegistratorPipeline {
 
     private static final String FACE_RECOGNITION_MODEL_FILE = "MobileFaceNet.tflite";
 
-    public FaceRegistratorPipeline(AssetManager assetManager) throws IOException {
+    public FaceRegistrationPipeline(AssetManager assetManager) throws IOException {
 
         // Start MLKit Face detector
         this.faceDetectorOptions = new FaceDetectorOptions.Builder()
@@ -77,120 +93,94 @@ public class FaceRegistratorPipeline {
         this.faceRecognition = new FaceRecognition(frModelFile);
     }
 
+    private int checkFaceAngle(float x, float y){
+        for(int i=0; i<5; i++){
+            float[][] xyBase = angleXY[i];
+            if( (x>xyBase[0][0]) && (x<xyBase[0][1]) && (y>xyBase[1][0]) && (y<xyBase[1][1]) ){
+                return i;
+            }
+        }
+        return -1;
+    }
+
+
     private void updateOverlayView(OverlayView overlayView, List<Face> faces) {
         String msg= "";
         int numFace = faces.size();
-        if(numFace > 1){
+        if(numFace != 1){
             msg="ERROR: " + numFace + " face detected!";
             overlayView.drawFaceBoundingBox(faces, msg, OverlayView.MSG_TYPE_ERROR);
         }
         else{
-            float xRotation = faces.get(0).getHeadEulerAngleY();
+            float xRotation = faces.get(0).getHeadEulerAngleX();
             float yRotation = faces.get(0).getHeadEulerAngleY();
-            msg="Horizontal Angle: " + String.format("%d", (int)yRotation) + "\nVertical Angle: " + String.format("%d", (int)xRotation);
+            msg= String.format("(%d/5) Y Angle: %d° | X Angle: %d°", faceEmbeddings.size(), (int)yRotation, (int)xRotation);
             overlayView.drawFaceBoundingBox(faces, msg, OverlayView.MSG_TYPE_INFO);
         }
 
     }
 
-
-    public void alignFace( Bitmap bitmap, Face face) {
-        // crop face
-
-
-        // Get affine similarity transformation matrix base on facial landmarks
-        ArrayList<Point> faceLandmarks = new ArrayList<Point>();
-        for (int landmarkType : LANDMARKS_5) {
-            PointF landmarkPosition = face.getLandmark(landmarkType).getPosition();
-            faceLandmarks.add(new Point(landmarkPosition.x, landmarkPosition.y));
-        }
-        MatOfPoint2f src = new MatOfPoint2f();
-        src.fromList(faceLandmarks);
-        Mat affineMatrix = Helper.similarityTransform(src, FACE_BASE_LANDMARKS_5);
-        Log.d("AFFINE", affineMatrix.toString());
-
-        Mat bitmapMat_CV_8UC4 = new Mat();
-        // matrix form of rgb image
-        Mat bitmapMat = new Mat(bitmapMat_CV_8UC4.rows(), bitmapMat_CV_8UC4.cols(), CvType.CV_8U);
-        Utils.bitmapToMat(bitmap, bitmapMat_CV_8UC4);
-        Imgproc.cvtColor(bitmapMat_CV_8UC4, bitmapMat, Imgproc.COLOR_RGBA2RGB);
-        Log.d ("BITMAP", bitmapMat.toString());
-
-        // get aligned face rgb image for recognition
-        Mat faceMatAligned = new Mat(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], CvType.CV_8U);
-        Imgproc.warpAffine(bitmapMat, faceMatAligned, affineMatrix, new Size(112, 112));
-        Log.d("WARP", faceMatAligned.toString());
-        faceMatAligned.convertTo(faceMatAligned, CvType.CV_32F);
-        Core.subtract(faceMatAligned, new Scalar(127.5, 127.5, 127.5), faceMatAligned);
-        Core.divide(faceMatAligned, new Scalar(128.0, 128.0, 128.0), faceMatAligned);
-        double[] temp = faceMatAligned.get(100, 100);
-        Log.d("TEST", temp[0]  + "_" + temp[1] + "_" + temp[2] + "__" + temp.length);
-
-        // get cropped face rgb image for antispoofing
-        Rect _bbox = face.getBoundingBox();
-        org.opencv.core.Rect bbox = new org.opencv.core.Rect(
-                Math.max((int)_bbox.left, 0),
-                Math.max((int)_bbox.top, 0),
-                Math.min((int)_bbox.right- (int)_bbox.left, bitmapMat.cols()- (int)_bbox.left),
-                Math.min((int)_bbox.bottom - (int)_bbox.top, bitmapMat.rows()- (int)_bbox.top)
-        );
-        Log.d("ROWBUG", bbox.toString() + "__" + bitmapMat.rows() + "__" + (int)_bbox.top);
-
-        Mat _faceCroppedMat = new Mat(bitmapMat, bbox);
-//        Mat faceCroppedMat = new Mat();
-//        Imgproc.resize(_faceCroppedMat, faceCroppedMat, new Size(CROP_FACE_SIZE[0], CROP_FACE_SIZE[1]));
-//        Log.d("WARP1", faceCroppedMat.toString());
-//        faceCroppedMat.convertTo(faceCroppedMat, CvType.CV_32F);
-//        Core.divide(faceCroppedMat, new Scalar(255.0, 255.0, 255.0), faceCroppedMat);
-//        double[] temp2 = faceCroppedMat.get(100, 100);
-//        Log.d("TEST2", temp2[0]  + "_" + temp2[1] + "_" + temp2[2] + "__" + temp2.length );
-
-        //  Test code for aligned face bitmap generator
-//        Bitmap faceBitmapAligned = Bitmap.createBitmap(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], Bitmap.Config.ARGB_8888);
-//        Utils.matToBitmap(faceMatAligned, faceBitmapAligned);
-//        Log.d("ALIGN", faceBitmapAligned.toString());
-
-//        Bitmap faceBitmapAligned = Bitmap.createBitmap(CROP_FACE_SIZE[0], CROP_FACE_SIZE[1], Bitmap.Config.ARGB_8888);
-//        Utils.matToBitmap(faceCroppedMat, faceBitmapAligned);
-//        Log.d("ALIGN", faceBitmapAligned.toString());
-
-        // Test code
-//        SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
-//        File file = new File(getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
-//
-//        try (FileOutputStream out = new FileOutputStream(file)) {
-//            faceBitmapAligned.compress(Bitmap.CompressFormat.PNG, 100, out); // bmp is your Bitmap instance
-//            // PNG is a lossless format, the compression factor (100) is ignored
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-
-
-        // Perform antispoofing
-//        boolean isReal = faceAntiSpoofing.isRealFace(faceCroppedMat);
-
-        // Perform recognition
-        float[] embedding = this.faceRecognition.getEmbedding(faceMatAligned);
-//        if (_pre_embedding == null){
-//            Log.d("RECOG", "Assign!");
-//            _pre_embedding = embedding;
-//        }
-//        this.faceRecognition.isSame(embedding, _pre_embedding);
-
-
+    public ArrayList<float[]> getFaceEmbeddings(){
+        return this.faceEmbeddings;
     }
 
-//    public static String getBatchDirectoryName() {
+    public void recogniteAndUpdateState( Bitmap bitmap, Face face) {
+        float xRotation = face.getHeadEulerAngleX();
+        float yRotation = face.getHeadEulerAngleY();
+        int idx = checkFaceAngle(xRotation, yRotation);
+        if((idx==-1) || (hasFaces[idx])){
+            return;
+        }
+        else{
+            // Get affine similarity transformation matrix base on facial landmarks
+            ArrayList<Point> faceLandmarks = new ArrayList<Point>();
+            for (int landmarkType : LANDMARKS_5) {
+                PointF landmarkPosition = face.getLandmark(landmarkType).getPosition();
+                faceLandmarks.add(new Point(landmarkPosition.x, landmarkPosition.y));
+            }
+            MatOfPoint2f src = new MatOfPoint2f();
+            src.fromList(faceLandmarks);
+            Mat affineMatrix = Helper.similarityTransform(src, FACE_BASE_LANDMARKS_5);
+            Log.d("AFFINE", affineMatrix.toString());
+
+            Mat bitmapMat_CV_8UC4 = new Mat();
+            // matrix form of rgb image
+            Mat bitmapMat = new Mat(bitmapMat_CV_8UC4.rows(), bitmapMat_CV_8UC4.cols(), CvType.CV_8U);
+            Utils.bitmapToMat(bitmap, bitmapMat_CV_8UC4);
+            Imgproc.cvtColor(bitmapMat_CV_8UC4, bitmapMat, Imgproc.COLOR_RGBA2RGB);
+            Log.d ("BITMAP", bitmapMat.toString());
+
+            // get aligned face rgb image for recognition
+            Mat faceMatAligned = new Mat(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], CvType.CV_8U);
+            Imgproc.warpAffine(bitmapMat, faceMatAligned, affineMatrix, new Size(112, 112));
+            Log.d("WARP", faceMatAligned.toString());
+            faceMatAligned.convertTo(faceMatAligned, CvType.CV_32F);
+            Core.subtract(faceMatAligned, new Scalar(127.5, 127.5, 127.5), faceMatAligned);
+            Core.divide(faceMatAligned, new Scalar(128.0, 128.0, 128.0), faceMatAligned);
+
+//            //  Test code for aligned face bitmap generator
+//            Bitmap faceBitmapAligned = Bitmap.createBitmap(ALIGNED_FACE_SIZE[0], ALIGNED_FACE_SIZE[1], Bitmap.Config.ARGB_8888);
+//            Utils.matToBitmap(faceMatAligned, faceBitmapAligned);
+//            Log.d("ALIGN", faceBitmapAligned.toString());
+//            // Test code
+//            SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
+//            File file = new File(Helper.getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
 //
-//        String app_folder_path = "";
-//        app_folder_path = Environment.getExternalStorageDirectory().toString() + "/images";
-//        File dir = new File(app_folder_path);
-//        if (!dir.exists() && !dir.mkdirs()) {
-//
-//        }
-//
-//        return app_folder_path;
-//    }
+//            try (FileOutputStream out = new FileOutputStream(file)) {
+//                faceBitmapAligned.compress(Bitmap.CompressFormat.PNG, 100, out); // bmp is your Bitmap instance
+//                // PNG is a lossless format, the compression factor (100) is ignored
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+
+            // Perform recognition
+            float[] embedding = this.faceRecognition.getEmbedding(faceMatAligned);
+            faceEmbeddings.add(embedding);
+            hasFaces[idx] = true;
+        }
+    }
+
+
 
 //    public List<Face> detectFace(ImageProxy imageProxy) {
 //        // input image convert
@@ -227,7 +217,11 @@ public class FaceRegistratorPipeline {
 
 //    }
 
-    public void detectFaceAsync(ImageProxy imageProxy, OverlayView overlayView) {
+    public ArrayList<float[]> detectFaceAsync(ImageProxy imageProxy, OverlayView overlayView) {
+        if(this.faceEmbeddings.size() == 5){
+//            imageProxy.close();
+            return this.faceEmbeddings;
+        }
         // input image convert
         @SuppressLint("UnsafeExperimentalUsageError") Image mediaImage = imageProxy.getImage();
 //        Image.Plane[] planes = mediaImage.getPlanes();
@@ -248,16 +242,23 @@ public class FaceRegistratorPipeline {
                                         updateOverlayView(overlayView, faces);
                                     }
                                 })
+                        // executed on another executor to improve performance
                         .addOnCompleteListener( executor,
                                 new OnCompleteListener<List<Face>>() {
                                     @Override
                                     public void onComplete(@NonNull Task<List<Face>> task) {
-                                        @SuppressLint("UnsafeExperimentalUsageError") Bitmap inputBitmap = BitmapUtils.getBitmap(imageProxy);
-                                        imageProxy.close();
-                                        for (Face face: task.getResult()){
-                                            alignFace(inputBitmap, face);
+                                        List<Face> faces = task.getResult();
+                                        if(faces.size()!=1){
+                                            imageProxy.close();
+                                            return;
                                         }
-
+                                        else {
+                                            @SuppressLint("UnsafeExperimentalUsageError") Bitmap inputBitmap = BitmapUtils.getBitmap(imageProxy);
+                                            imageProxy.close();
+                                            for (Face face : task.getResult()) {
+                                                recogniteAndUpdateState(inputBitmap, face);
+                                            }
+                                        }
                                     }
                                 }
                         )
@@ -269,6 +270,7 @@ public class FaceRegistratorPipeline {
                                         // ...
                                     }
                                 });
+        return null;
     }
 
 
