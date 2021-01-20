@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -117,14 +118,15 @@ public class MainActivity extends AppCompatActivity {
             if(result.getContents() == null) {
                 Toast.makeText(this, "Cancelled", Toast.LENGTH_LONG).show();
             } else {
-                String qrText = result.getContents();
+                String qrTextBase64 = result.getContents();
+                String qrText = new String(Base64.decode(qrTextBase64, 0));
                 try {
                     JSONObject jObject = new JSONObject(qrText);
                     String code = jObject.getString("code");
                     String id = jObject.getString("user_id");
                     String username = jObject.getString("username");
                     String email =jObject.getString("email");
-                    Toast.makeText(this, "Scanned: " + qrText, Toast.LENGTH_LONG).show();
+//                    Toast.makeText(this, "Scanned: " + qrText, Toast.LENGTH_LONG).show();
                     Intent faceRegistrationWarningIntent = new Intent(MainActivity.this, FaceRegistrationWarningActivity.class);
                     faceRegistrationWarningIntent.putExtra("code", code);
                     faceRegistrationWarningIntent.putExtra("user_id", id);

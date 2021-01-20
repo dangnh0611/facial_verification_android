@@ -35,21 +35,21 @@
             android:id="@+id/face_registration_warning_username"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:text="Username"
+            android:text="Username:"
             android:layout_weight="0.5"
             android:paddingTop="20dp"
             android:textFontWeight="2"
-            android:textSize="20dp"
+            android:textSize="18dp"
             ></TextView>
         <TextView
             android:id = "@+id/face_registration_warning_email"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:text="Email"
+            android:text="Email:"
             android:layout_weight="0.5"
             android:paddingTop="10dp"
             android:textFontWeight="2"
-            android:textSize="20dp"
+            android:textSize="18dp"
             ></TextView>
 
         <TextView
