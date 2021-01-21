@@ -14,10 +14,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.room.Room;
 
 import com.example.donelogin.R;
-import com.example.donelogin.model.AppDatabase;
 import com.example.donelogin.util.NukeSSLCerts;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -95,9 +93,9 @@ public class MainActivity extends AppCompatActivity {
         // if main activity start by a tap on pushed notification
         String notificationType = extras.getString("type", "");
         if(notificationType.equals("faceid")) {
-            Intent faceLoginCameraIntent = new Intent(MainActivity.this, FaceLoginCameraActivity.class);
-            faceLoginCameraIntent.putExtras(extras);
-            startActivity(faceLoginCameraIntent);
+            Intent faceAuthPromtIntent = new Intent(MainActivity.this, FaceAuthPromtActivity.class);
+            faceAuthPromtIntent.putExtras(extras);
+            startActivity(faceAuthPromtIntent);
         }
     }
 

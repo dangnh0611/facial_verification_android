@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.donelogin.R;
 
-public class FaceRegistrationStatusActivity extends AppCompatActivity {
+public class FaceCameraStatusActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +52,7 @@ public class FaceRegistrationStatusActivity extends AppCompatActivity {
         nextBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent mainActivityIntent = new Intent(FaceRegistrationStatusActivity.this, MainActivity.class);
+                Intent mainActivityIntent = new Intent(FaceCameraStatusActivity.this, MainActivity.class);
                 startActivity(mainActivityIntent);
             }
         });

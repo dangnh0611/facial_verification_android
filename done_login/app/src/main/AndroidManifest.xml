@@ -35,10 +35,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".activity.FaceLoginCameraActivity"></activity>
+        <activity android:name=".activity.FaceAuthCameraActivity"></activity>
         <activity android:name=".activity.FaceRegistrationWarningActivity"></activity>
         <activity android:name=".activity.FaceRegistrationCameraActivity"></activity>
-        <activity android:name=".activity.FaceRegistrationStatusActivity"></activity>
+        <activity android:name=".activity.FaceCameraStatusActivity"></activity>
+        <activity android:name=".activity.FaceAuthPromtActivity"></activity>
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"
             android:screenOrientation="portrait"

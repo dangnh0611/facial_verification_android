@@ -88,7 +88,7 @@ public class FaceRegistrationCameraActivity extends BaseCameraActivity {
 
 
     private void sendFaceRegistrationRequest(boolean success) {
-        Intent faceRegistrationSucessIntent = new Intent(FaceRegistrationCameraActivity.this, FaceRegistrationStatusActivity.class);
+        Intent faceRegistrationSucessIntent = new Intent(FaceRegistrationCameraActivity.this, FaceCameraStatusActivity.class);
         Bundle extras = getIntent().getExtras();
         String deviceName = android.os.Build.MODEL;
         String deviceBrand = android.os.Build.MANUFACTURER;

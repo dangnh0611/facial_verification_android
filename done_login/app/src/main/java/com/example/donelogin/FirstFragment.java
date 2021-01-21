@@ -17,7 +17,6 @@ import android.view.animation.Animation;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -29,8 +28,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
-import com.example.donelogin.activity.FaceLoginCameraActivity;
-import com.example.donelogin.activity.MainActivity;
+import com.example.donelogin.activity.FaceAuthPromtActivity;
 import com.example.donelogin.adapter.AccessRequestAdapter;
 import com.example.donelogin.adapter.AccountAdapter;
 import com.example.donelogin.model.AccessRequest;
@@ -41,7 +39,6 @@ import com.example.donelogin.model.AppDatabase;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Text;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,9 +63,9 @@ public class FirstFragment extends Fragment {
     @SuppressLint("StaticFieldLeak")
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        accoutTextView = (TextView) getView().findViewById(R.id.account_text_view);
-        accessRequestTextView = (TextView) getView().findViewById(R.id.request_text_view);
-        accountListView = (ListView) getView().findViewById(R.id.account_list_view);
+        accoutTextView = getView().findViewById(R.id.account_text_view);
+        accessRequestTextView = getView().findViewById(R.id.request_text_view);
+        accountListView = getView().findViewById(R.id.account_list_view);
         accountListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapter, View v, int position, long arg3) {
@@ -92,30 +89,44 @@ public class FirstFragment extends Fragment {
             }
         });
 
-        accessRequestListView = (ListView) getView().findViewById(R.id.request_list_view);
+        accessRequestListView = getView().findViewById(R.id.request_list_view);
         accessRequestListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapter, View v, int position, long arg3) {
                 Animation animation1 = new AlphaAnimation(0.3f, 1.0f);
-                animation1.setDuration(1000);
+                animation1.setDuration(500);
                 v.startAnimation(animation1);
 
                 AccessRequest request = (AccessRequest) adapter.getItemAtPosition(position);
-                String msg = "Name: " + request.getUsername() + "\nEmail: " + request.getEmail() + "\nRequest at: " + request.getRequestTime();
-                new AlertDialog.Builder(getActivity())
-                        .setTitle("Access request detail")
-                        .setMessage(msg)
-                        .setPositiveButton("Accept",
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        Log.d("TEST", "clicked");
-                                        Intent faceLoginCameraIntent = new Intent(getActivity(), FaceLoginCameraActivity.class);
-                                        faceLoginCameraIntent.putExtra("mfa_code", request.getMfaCode());
-                                        faceLoginCameraIntent.putExtra("device_id", Integer.toString(request.getDeviceId()));
-                                        startActivity(faceLoginCameraIntent);
-                                    }
-                                })
-                        .show();
+
+                // new intent approach
+                Intent faceAuthPromtIntent = new Intent(getActivity(), FaceAuthPromtActivity.class);
+                faceAuthPromtIntent.putExtra("mfa_code", request.getMfaCode());
+                faceAuthPromtIntent.putExtra("device_id", Integer.toString(request.getDeviceId()));
+                faceAuthPromtIntent.putExtra("ip", request.getIpAddress());
+                faceAuthPromtIntent.putExtra("request_at", request.getRequestTime());
+                faceAuthPromtIntent.putExtra("location", request.getLocation());
+
+                startActivity(faceAuthPromtIntent);
+
+
+                // Dialog base approach
+//                String msg = "Name: " + request.getUsername() + "\nEmail: " + request.getEmail() + "\nRequest at: " + request.getRequestTime();
+//                new AlertDialog.Builder(getActivity())
+//                        .setTitle("Access request detail")
+//                        .setMessage(msg)
+//                        .setPositiveButton("Accept",
+//                                new DialogInterface.OnClickListener() {
+//                                    public void onClick(DialogInterface dialog, int which) {
+//                                        Log.d("TEST", "clicked");
+//                                        Intent faceLoginCameraIntent = new Intent(getActivity(), FaceAuthCameraActivity.class);
+//                                        faceLoginCameraIntent.putExtra("mfa_code", request.getMfaCode());
+//                                        faceLoginCameraIntent.putExtra("device_id", Integer.toString(request.getDeviceId()));
+//                                        startActivity(faceLoginCameraIntent);
+//                                    }
+//                                })
+//                        .show();
+
             }
         });
 
@@ -185,11 +196,14 @@ public class FirstFragment extends Fragment {
                                                 String mfaCode = obj.getString("mfa_code");
                                                 int deviceId = Integer.valueOf(obj.getString("device_id"));
                                                 String requestAt = obj.getString("request_at");
+                                                String ipAddress = obj.getString("ip");
+                                                String location = obj.getString("location");
+
                                                 Account account = accountDao.getAccountByDeviceId(deviceId);
                                                 if (account != null) {
                                                     String userName = account.username;
                                                     String email = account.email;
-                                                    AccessRequest newAccessRequest = new AccessRequest(mfaCode, deviceId, requestAt, userName, email);
+                                                    AccessRequest newAccessRequest = new AccessRequest(mfaCode, deviceId, requestAt, userName, email, ipAddress, location);
                                                     accessRequests.add(newAccessRequest);
                                                 }
                                             }

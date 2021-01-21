@@ -86,7 +86,7 @@ public class BaseCameraActivity extends AppCompatActivity {
         overlayView.setWillNotDraw( false );
         overlayView.setZOrderOnTop( true );
 
-        //
+        // create db access object (DAO) instance
         db= Room.databaseBuilder(this.getApplicationContext(),
                 AppDatabase.class, AppDatabase.DB_NAME).build();
         accountDao = db.accountDao();
