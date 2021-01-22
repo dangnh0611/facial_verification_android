@@ -10,6 +10,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.donelogin.R;
+
 public class FaceRegistrationWarningActivity extends AppCompatActivity {
 
     @Override
@@ -26,8 +27,7 @@ public class FaceRegistrationWarningActivity extends AppCompatActivity {
             usernameTextView.setText(username);
             usernameTextView.setTypeface(usernameTextView.getTypeface(), Typeface.BOLD);
             emailTextView.setText(email);
-            emailTextView.setTypeface( emailTextView.getTypeface(), Typeface.BOLD);
-            //The key argument here must match that used in the other activity
+            emailTextView.setTypeface(emailTextView.getTypeface(), Typeface.BOLD);
         }
 
         nextBtn.setOnClickListener(new View.OnClickListener() {

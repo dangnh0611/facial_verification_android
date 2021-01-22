@@ -10,6 +10,7 @@ import android.widget.TextView;
 import com.example.donelogin.R;
 import com.example.donelogin.model.Account;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 /**
@@ -17,9 +18,11 @@ import java.util.ArrayList;
  * Adapter for listview
  */
 public class AccountAdapter extends ArrayAdapter<Account> {
+    private ArrayList<Account> items;
 
     public AccountAdapter(Context context, ArrayList<Account> items) {
         super(context, R.layout.account_list_view_element, items);
+        this.items = items;
     }
 
     @Override

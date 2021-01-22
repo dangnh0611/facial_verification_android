@@ -2,6 +2,7 @@ package com.example.donelogin;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -17,6 +18,7 @@ import android.view.animation.Animation;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -29,6 +31,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.donelogin.activity.FaceAuthPromtActivity;
+import com.example.donelogin.activity.MainActivity;
 import com.example.donelogin.adapter.AccessRequestAdapter;
 import com.example.donelogin.adapter.AccountAdapter;
 import com.example.donelogin.model.AccessRequest;
@@ -46,10 +49,12 @@ import java.util.List;
 public class FirstFragment extends Fragment {
     ListView accountListView;
     ListView accessRequestListView;
+    AccountAdapter accountAdapter;
     TextView accoutTextView;
     TextView accessRequestTextView;
     ArrayList<Account> accounts;
     AppDatabase db;
+    AccountDao accountDao;
 
     @Override
     public View onCreateView(
@@ -63,6 +68,11 @@ public class FirstFragment extends Fragment {
     @SuppressLint("StaticFieldLeak")
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        db = Room.databaseBuilder(getActivity().getApplicationContext(),
+                AppDatabase.class, AppDatabase.DB_NAME).build();
+        accountDao = db.accountDao();
+
         accoutTextView = getView().findViewById(R.id.account_text_view);
         accessRequestTextView = getView().findViewById(R.id.request_text_view);
         accountListView = getView().findViewById(R.id.account_list_view);
@@ -79,12 +89,28 @@ public class FirstFragment extends Fragment {
                 new AlertDialog.Builder(getActivity())
                         .setTitle("Account Detail")
                         .setMessage(msg)
-                        .setPositiveButton("OK",
+                        .setPositiveButton("Delete",
                                 new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int which) {
-                                        Log.d("TEST", "clicked");
+                                        Log.d("TEST", "clicked delete");
+                                        AsyncTask.execute(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                accountDao.delete(account);
+                                            }
+                                        });
+                                        accountAdapter.remove(account);
+                                        accountAdapter.notifyDataSetChanged();
+                                        accoutTextView.setText(accountAdapter.getCount() + " accounts associated with this device.");
                                     }
                                 })
+//                        .setNeutralButton("Delete",
+//                                new DialogInterface.OnClickListener() {
+//                                    public void onClick(DialogInterface dialog, int which) {
+//                                        Log.d("TEST", "clicked");
+//                                        Toast.makeText(getContext(), "Delete", Toast.LENGTH_LONG);
+//                                    }
+//                                })
                         .show();
             }
         });
@@ -130,10 +156,6 @@ public class FirstFragment extends Fragment {
             }
         });
 
-        db = Room.databaseBuilder(getActivity().getApplicationContext(),
-                AppDatabase.class, AppDatabase.DB_NAME).build();
-        AccountDao accountDao = db.accountDao();
-
         new AsyncTask<Void, Void, ArrayList<Account>>() {
             @SuppressLint("StaticFieldLeak")
             @Override
@@ -151,8 +173,8 @@ public class FirstFragment extends Fragment {
             @Override
             protected void onPostExecute(ArrayList<Account> accounts) {
                 if (accounts == null) return;
-                AccountAdapter adapter = new AccountAdapter(getActivity(), accounts);
-                accountListView.setAdapter(adapter);
+                accountAdapter = new AccountAdapter(getActivity(), accounts);
+                accountListView.setAdapter(accountAdapter);
                 accoutTextView.setText(accounts.size() + " accounts associated with this device.");
             }
         }.execute();

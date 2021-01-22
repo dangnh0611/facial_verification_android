@@ -18,7 +18,7 @@ import java.nio.MappedByteBuffer;
  */
 public class FaceRecognition {
     public static int EMBEDDING_SIZE = 128;
-    public static float THRESHOLD = 0.8f;
+    public static float THRESHOLD = 1.0f;
 
     private Interpreter interpreter;
 

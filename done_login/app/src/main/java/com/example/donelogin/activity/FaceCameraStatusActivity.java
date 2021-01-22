@@ -18,32 +18,30 @@ public class FaceCameraStatusActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.face_registration_status);
         Button nextBtn = findViewById(R.id.face_registration_success_next);
-        TextView statusText= findViewById(R.id.face_registration_status);
+        TextView statusText = findViewById(R.id.face_registration_status);
         TextView msgText = findViewById(R.id.face_registration_msg);
         Bundle extras = getIntent().getExtras();
         boolean status = extras.getBoolean("requestStatus");
         String msg = extras.getString("requestMsg");
         String type = extras.getString("type", "registration");
-        if(type.equals("login")){
-            if(status==false){
+        if (type.equals("login")) {
+            if (status == false) {
                 statusText.setText("LOGIN FAILED");
                 statusText.setTextColor(Color.RED);
-                msgText.setText("ERROR: "+ msg);
+                msgText.setText("ERROR: " + msg);
                 msgText.setTextColor(Color.RED);
-            }
-            else{
+            } else {
                 statusText.setText("LOGIN SUCCESSFULLY!");
                 statusText.setTextColor(Color.GREEN);
                 msgText.setText("");
                 msgText.setTextColor(Color.GREEN);
             }
 
-        }
-        else if(type.equals("registration")){
-            if(status==false){
+        } else if (type.equals("registration")) {
+            if (status == false) {
                 statusText.setText("SETUP FAILED");
                 statusText.setTextColor(Color.RED);
-                msgText.setText("ERROR: "+ msg);
+                msgText.setText("ERROR: " + msg);
                 msgText.setTextColor(Color.RED);
             }
         }

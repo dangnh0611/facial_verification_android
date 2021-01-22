@@ -34,10 +34,16 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Create shared preferences
         SharedPreferences sharedPreferences = getSharedPreferences("APP_CONFIG", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
+
+        // Demo with my wireless AP :D
         editor.putString("SERVER_URL", "https://192.168.11.2:5000");
+
+        // Or, demo with my phone's hotspot :D
 //        editor.putString("SERVER_URL", "https://192.168.43.200:5000");
+
         editor.apply();
 
         // get device FCM token
@@ -70,19 +76,18 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         // Trust all SSL certs
+        // For testing only
         NukeSSLCerts.nuke();
 
-        FloatingActionButton fab = findViewById(R.id.fab);
         if (!OpenCVLoader.initDebug()) {
             // Handle initialization error
-            Toast.makeText( this, "Unable to load OpenCV", Toast.LENGTH_SHORT ).show();
+            Toast.makeText( this, "Unable to load OpenCV. Some functions may not work!", Toast.LENGTH_LONG ).show();
         }
 
+        FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                Intent cameraIntent = new Intent(MainActivity.this, CameraActivity.class);
-//                startActivity(cameraIntent);
                 scanQRCode();
             }
         });

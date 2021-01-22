@@ -40,7 +40,7 @@ public class FaceAuthPromtActivity extends AppCompatActivity {
     private String name, email, location, time, ip;
     private String mfaCode;
     private String keyAlias;
-    private  int deviceId;
+    private int deviceId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,10 +63,11 @@ public class FaceAuthPromtActivity extends AppCompatActivity {
         Log.d("LOGIN", "mfa_code = " + mfaCode + ", device_id = " + deviceId);
 
         // create db access object (DAO) instance
-        AppDatabase db= Room.databaseBuilder(getApplicationContext(),
+        AppDatabase db = Room.databaseBuilder(getApplicationContext(),
                 AppDatabase.class, AppDatabase.DB_NAME).build();
         AccountDao accountDao = db.accountDao();
-        // get account information: key alias
+
+        // get account information: key alias, name, email,..
         new AsyncTask<Void, Void, Account>() {
             @SuppressLint("StaticFieldLeak")
             @Override
@@ -90,8 +91,6 @@ public class FaceAuthPromtActivity extends AppCompatActivity {
                 ipTextView.setText(ip);
             }
         }.execute();
-
-
 
 
         acceptBtn.setOnClickListener(new View.OnClickListener() {

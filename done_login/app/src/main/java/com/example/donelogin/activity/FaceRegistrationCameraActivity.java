@@ -11,6 +11,7 @@ import android.util.Base64;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
 import androidx.core.app.ActivityCompat;
@@ -62,6 +63,7 @@ public class FaceRegistrationCameraActivity extends BaseCameraActivity {
 
     protected ImageAnalysis.Analyzer createFrameAnalyzer() {
         return new ImageAnalysis.Analyzer() {
+            @RequiresApi(api = Build.VERSION_CODES.P)
             @Override
             public void analyze(@NonNull ImageProxy imageProxy) {
                 /*
@@ -87,6 +89,7 @@ public class FaceRegistrationCameraActivity extends BaseCameraActivity {
     }
 
 
+    @RequiresApi(api = Build.VERSION_CODES.P)
     private void sendFaceRegistrationRequest(boolean success) {
         Intent faceRegistrationSucessIntent = new Intent(FaceRegistrationCameraActivity.this, FaceCameraStatusActivity.class);
         Bundle extras = getIntent().getExtras();
