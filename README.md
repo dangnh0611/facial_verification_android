@@ -10,9 +10,17 @@
 [facial_verification_android]: https://github.com/dangnh0611/facial_verification_android
 [MobileFaceNet_TF]: https://github.com/dangnh0611/MobileFaceNet_TF
 
+## Table of contents
+  - [About the project](#about-the-project)
+  - [About this repository](#about-this-repository)
+    - [Technologies](#technologies)
+    - [Features](#features)
+  - [Future works](#future-works)
+  - [Inspirations](#inspirations)
+
 
 ## About the project
-This repository is a part of the project: **Single Sign On (SSO) Provider combined with Facial Two-Factors Authentication (2FA)**.
+This repository is a part of the project: **DOneLogin: Single Sign On (SSO) Provider combined with Facial Two-Factors Authentication (2FA)**.
 
 It contains 3 repositories:
 - [oidc_provider_with_facial_mfa][oidc_provider_with_facial_mfa]: SSO Provider Web service
@@ -25,7 +33,7 @@ It contains 3 repositories:
 
 ## About this repository
 This repository is the implementation of Android application which support facial 2FA.  
-It applies deep learning techniques for face detection/recognition/anti-spoofing.
+It applies deep learning techniques for face detection/recognition/anti-spoofing on frames captured from smart phone's frontal camera.
 
 ![work-flow](./docs/diagrams/diagram-flow-block.png)
 - **Face detection**: Face detector of [Google's MLKit](https://developers.google.com/ml-kit) on Android.
@@ -48,17 +56,17 @@ It applies deep learning techniques for face detection/recognition/anti-spoofing
 - [x] Face detection
 - [x] Face recognition
 - [x] Face anti-spoofing
-- [x] Notification powered by FCM
+- [x] Notifications powered by FCM
 - [x] View/Accept/Reject face authentication request
-- [x] Remove account
-- [x] Sync authentication request with SSO web service
+- [x] Remove accounts
+- [x] Sync authentication requests with SSO web service
 - [ ] Sync account removal with SSO web service
 
 ---
 
 ## Future works
 - [ ] Improve MobileFaceNet with new SOTA model
-- [ ] Improve face anti-spoofing model with [CDCD]([source code](https://github.com/ZitongYu/CDCN) | [paper](https://arxiv.org/abs/2003.04092))
+- [ ] Improve face anti-spoofing model with CDCD ([source code](https://github.com/ZitongYu/CDCN) | [paper](https://arxiv.org/abs/2003.04092))
 
 ---
 
