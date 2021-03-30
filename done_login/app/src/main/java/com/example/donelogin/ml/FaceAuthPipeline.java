@@ -106,6 +106,7 @@ public class FaceAuthPipeline {
             Log.d("LOGIN", "end here");
             return;
         }
+
         // Get affine similarity transformation matrix base on facial landmarks
         ArrayList<Point> faceLandmarks = new ArrayList<Point>();
         for (int landmarkType : LANDMARKS_5) {
@@ -245,6 +246,7 @@ public class FaceAuthPipeline {
 //            imageProxy.close();
             return 0;
         }
+
         // input image convert
         @SuppressLint("UnsafeExperimentalUsageError") Image mediaImage = imageProxy.getImage();
 //        Image.Plane[] planes = mediaImage.getPlanes();
@@ -255,6 +257,8 @@ public class FaceAuthPipeline {
 
 //        InputImage inputImage = InputImage.fromBitmap(inputBitmap, 0);
 
+//        long start = System.currentTimeMillis();
+
         // Pass image to an ML Kit Vision API
         Task<List<Face>> task =
                 faceDetector.process(inputImage)
@@ -262,6 +266,8 @@ public class FaceAuthPipeline {
                                 new OnSuccessListener<List<Face>>() {
                                     @Override
                                     public void onSuccess(List<Face> faces) {
+//                                        long end = System.currentTimeMillis();
+//                                        Log.d("MLKIT", Double.toString(end - start));
                                         updateOverlayView(overlayView, faces);
                                     }
                                 })

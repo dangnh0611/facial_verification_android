@@ -206,6 +206,7 @@ public class BaseCameraActivity extends AppCompatActivity {
                 cropRect.bottom,
                 cropRect.right
         };
+        Log.d("SIZE", cropRect.bottom + "__" + cropRect.right);
 
         // A float array of the destination vertices in clockwise order.
         float[] destination = {
